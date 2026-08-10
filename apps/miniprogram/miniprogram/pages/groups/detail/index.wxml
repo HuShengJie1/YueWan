@@ -1,0 +1,161 @@
+<view class="page detail-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading theme="circular" size="44rpx" text="正在读取群组" />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">{{ errorTitle }}</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button wx:if="{{ canRetry }}" theme="primary" shape="round" bindtap="onRetry">
+      重新加载
+    </t-button>
+    <t-button wx:else variant="outline" shape="round" bindtap="onBackToIndex">
+      返回我的群组
+    </t-button>
+  </view>
+
+  <block wx:else>
+    <view class="group-hero">
+      <view class="group-icon">群</view>
+      <view class="hero-meta">
+        <text class="role-pill {{ group.current_user_role === 'owner' ? 'role-owner' : '' }}">
+          {{ group.current_user_role === 'owner' ? '群主' : '成员' }}
+        </text>
+        <text class="member-count">{{ group.member_count }} 位成员</text>
+      </view>
+      <text class="group-name">{{ group.name }}</text>
+      <text class="group-description">{{ group.description || '一起把下一次见面安排好' }}</text>
+    </view>
+
+    <view class="invite-card">
+      <view class="invite-copy">
+        <text class="invite-title">邀请朋友加入</text>
+        <text class="invite-description">通过微信分享邀请卡片，登录后即可加入。</text>
+      </view>
+      <view wx:if="{{ inviteStatus === 'loading' }}" class="invite-state">
+        <t-loading theme="circular" size="32rpx" text="正在准备邀请" />
+      </view>
+      <t-button
+        wx:elif="{{ inviteStatus === 'ready' }}"
+        block
+        theme="primary"
+        shape="round"
+        open-type="share"
+      >
+        分享邀请
+      </t-button>
+      <view wx:else class="invite-error">
+        <text>{{ inviteErrorMessage }}</text>
+        <text class="retry-link" bindtap="onInviteRetry">重新准备邀请</text>
+      </view>
+    </view>
+
+    <view class="section-heading">
+      <text class="section-title">群组成员</text>
+      <text class="section-count">{{ group.member_count }} 人</text>
+    </view>
+
+    <view class="member-list">
+      <view wx:for="{{ members }}" wx:key="user_id" class="member-row">
+        <t-avatar image="{{ item.avatar_url }}" icon="user" size="82rpx" />
+        <view class="member-copy">
+          <text class="member-name">{{ item.nickname || '微信用户' }}</text>
+          <text class="member-role">{{ item.role === 'owner' ? '群主' : '成员' }}</text>
+        </view>
+        <view wx:if="{{ item.role === 'owner' }}" class="owner-badge">群主</view>
+      </view>
+    </view>
+
+    <view wx:if="{{ isLoadingMoreMembers }}" class="pagination-state">
+      <t-loading theme="circular" size="34rpx" text="正在加载更多成员" />
+    </view>
+    <view wx:elif="{{ memberLoadError }}" class="pagination-error" bindtap="onMemberLoadRetry">
+      <text>{{ memberLoadError }}</text>
+      <text class="retry-link">点击重试</text>
+    </view>
+    <text wx:elif="{{ !hasMoreMembers && members.length > 0 }}" class="list-end">
+      全部成员都在这里了
+    </text>
+
+    <view wx:if="{{ group.current_user_role === 'owner' }}" class="danger-section">
+      <view class="danger-copy">
+        <text class="danger-title">危险操作</text>
+        <text class="danger-description">删除后群组、成员关系及所有约玩数据均无法恢复。</text>
+      </view>
+      <t-button
+        theme="danger"
+        variant="outline"
+        shape="round"
+        disabled="{{ pageStatus !== 'ready' || isDeleting }}"
+        bindtap="onOpenDeleteConfirmation"
+      >
+        永久删除群组
+      </t-button>
+    </view>
+  </block>
+
+  <view wx:if="{{ showDeleteConfirmation && group }}" class="delete-layer">
+    <view class="delete-backdrop" bindtap="onCancelDelete"></view>
+    <view class="delete-dialog" catchtap="preventDialogClose">
+      <view class="delete-warning-icon">!</view>
+      <text class="delete-dialog-title">永久删除群组</text>
+      <text class="delete-dialog-description">
+        此操作不可恢复。删除「{{ group.name }}」时，会同时永久删除：
+      </text>
+
+      <view class="delete-impact-list">
+        <text>• 群组成员关系</text>
+        <text>• 群组下的约玩局</text>
+        <text>• 候选活动和时间</text>
+        <text>• 投票和最终活动记录</text>
+      </view>
+
+      <view class="confirmation-field">
+        <text class="confirmation-label">输入完整群组名称以确认</text>
+        <view class="confirmation-name">{{ group.name }}</view>
+        <input
+          class="confirmation-input {{ deleteErrorMessage ? 'confirmation-input-error' : '' }}"
+          value="{{ deleteConfirmationName }}"
+          maxlength="100"
+          disabled="{{ isDeleting }}"
+          focus="{{ showDeleteConfirmation }}"
+          placeholder="请输入上方群组名称"
+          placeholder-class="confirmation-placeholder"
+          bindinput="onDeleteConfirmationInput"
+        />
+      </view>
+
+      <view wx:if="{{ deleteErrorMessage }}" class="delete-error">
+        <text class="delete-error-dot">!</text>
+        <text>{{ deleteErrorMessage }}</text>
+      </view>
+
+      <view class="delete-dialog-actions">
+        <view class="delete-dialog-action">
+          <t-button
+            block
+            variant="outline"
+            shape="round"
+            disabled="{{ isDeleting }}"
+            bindtap="onCancelDelete"
+          >
+            取消
+          </t-button>
+        </view>
+        <view class="delete-dialog-action">
+          <t-button
+            block
+            theme="danger"
+            shape="round"
+            loading="{{ isDeleting }}"
+            disabled="{{ !isDeleteConfirmationMatched || isDeleting }}"
+            bindtap="onConfirmDelete"
+          >
+            {{ isDeleting ? '正在删除…' : '永久删除' }}
+          </t-button>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

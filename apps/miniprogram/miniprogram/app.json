@@ -1,0 +1,19 @@
+{
+  "entryPagePath": "pages/index/index",
+  "lazyCodeLoading": "requiredComponents",
+  "pages": [
+    "pages/index/index",
+    "pages/login/login",
+    "pages/profile/profile",
+    "pages/groups/create/index",
+    "pages/groups/detail/index",
+    "pages/groups/join/index"
+  ],
+  "sitemapLocation": "sitemap.json",
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "约玩"
+  }
+}

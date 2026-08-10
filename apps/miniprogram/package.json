@@ -1,0 +1,27 @@
+{
+  "name": "meetup-vote-miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WeChat miniprogram client for MeetUp Vote",
+  "scripts": {
+    "lint": "eslint \"miniprogram/**/*.ts\" \"typings/**/*.d.ts\"",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"**/*.{ts,js,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,mjs,json,md,yml,yaml}\"",
+    "check": "npm run lint && npm run typecheck && npm run format:check"
+  },
+  "dependencies": {
+    "tdesign-miniprogram": "^1.9.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "miniprogram-api-typings": "^4.0.8",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

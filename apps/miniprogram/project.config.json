@@ -1,0 +1,45 @@
+{
+  "appid": "wx47dfbd16f35356d7",
+  "compileType": "miniprogram",
+  "libVersion": "trial",
+  "miniprogramRoot": "miniprogram/",
+  "projectname": "meetup-vote",
+  "setting": {
+    "coverView": true,
+    "enhance": true,
+    "es6": true,
+    "minified": true,
+    "newFeature": true,
+    "packNpmManually": true,
+    "packNpmRelationList": [
+      {
+        "miniprogramNpmDistDir": "./miniprogram/",
+        "packageJsonPath": "./package.json"
+      }
+    ],
+    "postcss": true,
+    "urlCheck": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": ["typescript"],
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
+}

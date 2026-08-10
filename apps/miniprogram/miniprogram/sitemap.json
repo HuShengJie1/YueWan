@@ -1,0 +1,9 @@
+{
+  "desc": "MeetUp Vote miniprogram sitemap",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

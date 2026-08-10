@@ -1,0 +1,202 @@
+.join-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 58rpx 42rpx calc(44rpx + env(safe-area-inset-bottom));
+  background: #f6f7f2;
+}
+
+.center-state {
+  display: flex;
+  min-height: 76vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26rpx;
+  text-align: center;
+}
+
+.brand-mark,
+.state-icon,
+.person {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-mark {
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 24rpx;
+  color: #ffffff;
+  background: #167d5d;
+  box-shadow: 0 14rpx 34rpx rgba(22, 125, 93, 0.2);
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.state-icon {
+  width: 74rpx;
+  height: 74rpx;
+  border-radius: 24rpx;
+  color: #a94d43;
+  background: #fbe4df;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.state-title,
+.state-description,
+.eyebrow,
+.page-title,
+.page-description,
+.confirm-title,
+.confirm-note,
+.cancel-link {
+  display: block;
+}
+
+.state-title {
+  color: #1d2922;
+  font-size: 34rpx;
+  font-weight: 650;
+}
+
+.state-description {
+  max-width: 530rpx;
+  margin-bottom: 12rpx;
+  color: #788179;
+  font-size: 25rpx;
+  line-height: 1.6;
+}
+
+.invite-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.eyebrow {
+  margin-top: 38rpx;
+  color: #718078;
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
+}
+
+.page-title {
+  margin-top: 18rpx;
+  color: #17231d;
+  font-size: 48rpx;
+  font-weight: 700;
+  line-height: 1.32;
+}
+
+.page-description {
+  margin-top: 18rpx;
+  color: #69746d;
+  font-size: 26rpx;
+  line-height: 1.65;
+}
+
+.confirm-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 44rpx;
+  padding: 46rpx 32rpx 38rpx;
+  border: 1rpx solid rgba(23, 35, 29, 0.06);
+  border-radius: 32rpx;
+  background: #ffffff;
+  box-shadow: 0 22rpx 60rpx rgba(35, 56, 45, 0.07);
+  text-align: center;
+}
+
+.people-mark {
+  display: flex;
+  align-items: center;
+}
+
+.person {
+  width: 82rpx;
+  height: 82rpx;
+  border-radius: 50%;
+  color: #167d5d;
+  background: #dff1e9;
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.person-friend {
+  color: #8b641d;
+  background: #f8eccd;
+}
+
+.invite-line {
+  position: relative;
+  width: 78rpx;
+  height: 2rpx;
+  background: #d9ded9;
+}
+
+.line-dot {
+  position: absolute;
+  top: -5rpx;
+  left: 34rpx;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #68ae91;
+}
+
+.confirm-title {
+  margin-top: 28rpx;
+  color: #1c2922;
+  font-size: 31rpx;
+  font-weight: 650;
+}
+
+.confirm-note {
+  margin-top: 12rpx;
+  color: #858e87;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 13rpx;
+  margin-top: 22rpx;
+  padding: 20rpx 22rpx;
+  border-radius: 19rpx;
+  color: #8b3d35;
+  background: #fff0ed;
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+
+.error-dot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 29rpx;
+  height: 29rpx;
+  margin-top: 2rpx;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #c95e51;
+  font-size: 18rpx;
+  font-weight: 700;
+}
+
+.join-actions {
+  margin-top: 38rpx;
+}
+
+.cancel-link {
+  margin-top: 24rpx;
+  color: #7b857e;
+  font-size: 23rpx;
+  text-align: center;
+}

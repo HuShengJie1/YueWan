@@ -1,0 +1,88 @@
+<view class="page index-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <view class="brand-mark">约</view>
+    <t-loading theme="circular" size="44rpx" text="正在加载你的群组" />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">群组暂时加载失败</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button theme="primary" shape="round" bindtap="onRetry">重新加载</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="topbar">
+      <view class="wordmark">
+        <view class="brand-mark brand-mark-small">约</view>
+        <view>
+          <text class="wordmark-title">约玩</text>
+          <text class="wordmark-subtitle">MEETUP VOTE</text>
+        </view>
+      </view>
+      <view class="profile-entry" bindtap="onEditProfile">
+        <t-avatar image="{{ avatarUrl }}" icon="user" size="68rpx" />
+        <text class="profile-name">{{ displayName }}</text>
+      </view>
+    </view>
+
+    <view class="page-heading">
+      <view>
+        <text class="eyebrow">YOUR GROUPS</text>
+        <text class="page-title">我的群组</text>
+      </view>
+      <t-button theme="primary" shape="round" size="small" bindtap="onCreateGroup">
+        创建群组
+      </t-button>
+    </view>
+
+    <view wx:if="{{ pageStatus === 'empty' }}" class="empty-card">
+      <view class="empty-people">
+        <view class="empty-avatar">你</view>
+        <view class="empty-link"></view>
+        <view class="empty-avatar empty-avatar-friend">友</view>
+      </view>
+      <text class="empty-title">还没有群组</text>
+      <text class="empty-description">创建一个或接受朋友邀请</text>
+      <t-button theme="primary" shape="round" bindtap="onCreateGroup">创建第一个群组</t-button>
+    </view>
+
+    <view wx:else class="group-list">
+      <view
+        wx:for="{{ groups }}"
+        wx:key="id"
+        class="group-card"
+        data-group-id="{{ item.id }}"
+        bindtap="onGroupTap"
+      >
+        <view class="group-card-top">
+          <view class="group-monogram">群</view>
+          <view class="role-pill {{ item.current_user_role === 'owner' ? 'role-owner' : '' }}">
+            {{ item.current_user_role === 'owner' ? '群主' : '成员' }}
+          </view>
+        </view>
+        <text class="group-name">{{ item.name }}</text>
+        <text class="group-description">{{ item.description || '一起把下一次见面安排好' }}</text>
+        <view class="group-meta">
+          <text>{{ item.member_count }} 位成员</text>
+          <text class="group-arrow">›</text>
+        </view>
+      </view>
+
+      <view wx:if="{{ isLoadingMore }}" class="pagination-state">
+        <t-loading theme="circular" size="34rpx" text="正在加载更多" />
+      </view>
+      <view wx:elif="{{ loadMoreError }}" class="pagination-error" bindtap="onLoadMoreRetry">
+        <text>{{ loadMoreError }}</text>
+        <text class="retry-link">点击重试</text>
+      </view>
+      <text wx:elif="{{ !hasMore && groups.length > 0 }}" class="list-end">已经到底了</text>
+    </view>
+
+    <view class="account-actions">
+      <text bindtap="onEditProfile">编辑资料</text>
+      <view class="action-divider"></view>
+      <text class="logout-action" bindtap="onLogout">退出登录</text>
+    </view>
+  </block>
+</view>

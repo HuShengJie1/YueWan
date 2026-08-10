@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "我的群组",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#f6f7f2",
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "t-avatar": "tdesign-miniprogram/avatar/avatar",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-loading": "tdesign-miniprogram/loading/loading"
+  }
+}

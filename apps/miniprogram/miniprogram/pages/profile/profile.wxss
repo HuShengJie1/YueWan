@@ -1,0 +1,238 @@
+.profile-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 64rpx 48rpx calc(44rpx + env(safe-area-inset-bottom));
+  background: #f6f7f2;
+}
+
+.center-state {
+  display: flex;
+  min-height: 74vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26rpx;
+  color: #657068;
+  text-align: center;
+}
+
+.state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 74rpx;
+  height: 74rpx;
+  border-radius: 24rpx;
+  color: #a94d43;
+  background: #fbe4df;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.state-title {
+  color: #1d2922;
+  font-size: 34rpx;
+  font-weight: 650;
+}
+
+.state-description {
+  max-width: 520rpx;
+  margin-bottom: 12rpx;
+  color: #788179;
+  font-size: 25rpx;
+  line-height: 1.6;
+}
+
+.profile-header {
+  display: flex;
+  flex-direction: column;
+}
+
+.eyebrow {
+  color: #718078;
+  font-size: 21rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
+}
+
+.page-title {
+  margin-top: 20rpx;
+  color: #17231d;
+  font-size: 48rpx;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.page-description {
+  margin-top: 18rpx;
+  color: #69746d;
+  font-size: 27rpx;
+  line-height: 1.65;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 54rpx;
+  padding: 48rpx 32rpx 40rpx;
+  border: 1rpx solid rgba(23, 35, 29, 0.06);
+  border-radius: 34rpx;
+  background: #ffffff;
+  box-shadow: 0 24rpx 64rpx rgba(35, 56, 45, 0.07);
+}
+
+.avatar-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 164rpx;
+  height: 164rpx;
+  margin: 0;
+  padding: 10rpx;
+  overflow: visible;
+  border: 0;
+  border-radius: 50%;
+  background: #e1f2eb;
+  box-shadow: inset 0 0 0 2rpx rgba(22, 125, 93, 0.08);
+  line-height: 1;
+}
+
+.avatar-button::after {
+  border: 0;
+}
+
+.avatar-button[disabled] {
+  opacity: 1;
+}
+
+.avatar-edit-badge {
+  position: absolute;
+  right: 2rpx;
+  bottom: 4rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+  border: 5rpx solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #167d5d;
+  font-size: 19rpx;
+  font-weight: 700;
+}
+
+.avatar-uploading {
+  position: absolute;
+  inset: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: rgba(18, 48, 37, 0.58);
+}
+
+.profile-preview {
+  margin-top: 24rpx;
+  color: #1b2821;
+  font-size: 34rpx;
+  font-weight: 650;
+}
+
+.profile-hint {
+  max-width: 480rpx;
+  margin-top: 8rpx;
+  color: #929a94;
+  font-size: 22rpx;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.avatar-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-top: 18rpx;
+  padding: 15rpx 20rpx;
+  border-radius: 16rpx;
+  color: #a14b42;
+  background: #fff0ed;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.form-section {
+  margin-top: 46rpx;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 14rpx;
+  color: #344139;
+  font-size: 25rpx;
+  font-weight: 600;
+}
+
+.input-shell {
+  display: flex;
+  align-items: center;
+  height: 104rpx;
+  padding: 0 28rpx;
+  border: 2rpx solid #e4e8e3;
+  border-radius: 24rpx;
+  background: #ffffff;
+  transition: border-color 0.2s ease;
+}
+
+.input-shell-error {
+  border-color: #d58379;
+}
+
+.nickname-input {
+  flex: 1;
+  height: 100%;
+  color: #1d2922;
+  font-size: 30rpx;
+}
+
+.input-placeholder {
+  color: #a7aea9;
+}
+
+.input-count {
+  margin-left: 20rpx;
+  color: #a0a8a2;
+  font-size: 22rpx;
+}
+
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-top: 14rpx;
+  color: #a14b42;
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+
+.error-dot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28rpx;
+  height: 28rpx;
+  margin-top: 2rpx;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #c95e51;
+  font-size: 18rpx;
+  font-weight: 700;
+}
+
+.profile-actions {
+  margin-top: 48rpx;
+}

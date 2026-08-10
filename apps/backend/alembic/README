@@ -1,0 +1,2 @@
+This directory contains database migrations managed by Alembic.
+Generate revisions only after changing SQLAlchemy metadata.

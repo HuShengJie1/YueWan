@@ -1,0 +1,80 @@
+<view class="page profile-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading theme="circular" size="44rpx" text="正在读取你的资料" />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">资料暂时加载失败</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button theme="primary" shape="round" bindtap="onRetry">重新加载</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="profile-header">
+      <text class="eyebrow">YOUR PROFILE</text>
+      <text class="page-title">朋友该怎么称呼你？</text>
+      <text class="page-description">昵称会展示给与你一起约玩的群组成员。</text>
+    </view>
+
+    <view class="profile-card">
+      <button
+        class="avatar-button"
+        open-type="chooseAvatar"
+        disabled="{{ isUploadingAvatar || isSaving }}"
+        aria-label="选择头像"
+        bindchooseavatar="onChooseAvatar"
+      >
+        <t-avatar image="{{ avatarUrl }}" icon="user" size="144rpx" />
+        <view class="avatar-edit-badge">
+          <text>换</text>
+        </view>
+        <view wx:if="{{ isUploadingAvatar }}" class="avatar-uploading">
+          <t-loading theme="circular" size="42rpx" inherit-color />
+        </view>
+      </button>
+      <text class="profile-preview">{{ nickname || '你的昵称' }}</text>
+      <text class="profile-hint">
+        {{ isUploadingAvatar ? '正在上传头像…' : '点击头像，可使用微信头像或相册图片' }}
+      </text>
+      <view wx:if="{{ avatarErrorMessage }}" class="avatar-error">
+        <text class="error-dot">!</text>
+        <text>{{ avatarErrorMessage }}</text>
+      </view>
+    </view>
+
+    <view class="form-section">
+      <text class="field-label">昵称</text>
+      <view class="input-shell {{ errorMessage ? 'input-shell-error' : '' }}">
+        <input
+          class="nickname-input"
+          type="nickname"
+          value="{{ nickname }}"
+          maxlength="24"
+          placeholder="例如：小林"
+          placeholder-class="input-placeholder"
+          bindinput="onNicknameInput"
+        />
+        <text class="input-count">{{ nickname.length }}/24</text>
+      </view>
+      <view wx:if="{{ errorMessage }}" class="field-error">
+        <text class="error-dot">!</text>
+        <text>{{ errorMessage }}</text>
+      </view>
+    </view>
+
+    <view class="profile-actions">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isSaving }}"
+        disabled="{{ isSaving || isUploadingAvatar || !nickname }}"
+        bindtap="onSave"
+      >
+        {{ isSaving ? '正在保存…' : '保存并继续' }}
+      </t-button>
+    </view>
+  </block>
+</view>

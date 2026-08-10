@@ -1,0 +1,12 @@
+page {
+  --td-brand-color: #167d5d;
+  --td-brand-color-active: #0f674c;
+  --td-brand-color-disabled: #9acbb9;
+
+  min-height: 100%;
+  background: #f6f7f2;
+  color: #1d2922;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  font-size: 28rpx;
+  -webkit-font-smoothing: antialiased;
+}

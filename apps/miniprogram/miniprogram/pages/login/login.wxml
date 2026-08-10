@@ -1,0 +1,68 @@
+<view class="page login-page">
+  <view class="ambient ambient-top"></view>
+  <view class="ambient ambient-bottom"></view>
+
+  <view wx:if="{{ pageStatus === 'checking' }}" class="checking-state">
+    <view class="brand-mark brand-mark-small">约</view>
+    <t-loading theme="circular" size="44rpx" text="正在确认登录状态" />
+  </view>
+
+  <block wx:else>
+    <view class="hero">
+      <view class="brand-row">
+        <view class="brand-mark">约</view>
+        <text class="brand-name">MEETUP VOTE</text>
+      </view>
+
+      <view class="hero-copy">
+        <text class="hero-title">把“哪天、去哪儿”
+一次说定</text>
+        <text class="hero-subtitle">和朋友轻松收集想法、投票时间，少一点来回确认。</text>
+      </view>
+
+      <view class="feature-list">
+        <view class="feature-item">
+          <view class="feature-icon feature-icon-green">人</view>
+          <view>
+            <text class="feature-title">确认参与者</text>
+            <text class="feature-description">谁有空，一眼看清</text>
+          </view>
+        </view>
+        <view class="feature-item">
+          <view class="feature-icon feature-icon-yellow">地</view>
+          <view>
+            <text class="feature-title">投票活动地点</text>
+            <text class="feature-description">喜欢、不反对，都能表达</text>
+          </view>
+        </view>
+        <view class="feature-item">
+          <view class="feature-icon feature-icon-blue">时</view>
+          <view>
+            <text class="feature-title">选出共同时间</text>
+            <text class="feature-description">多选空闲，不再翻聊天记录</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="login-panel">
+      <view wx:if="{{ errorMessage }}" class="error-banner">
+        <text class="error-dot">!</text>
+        <text>{{ errorMessage }}</text>
+      </view>
+
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isLoggingIn }}"
+        disabled="{{ isLoggingIn }}"
+        bindtap="onLogin"
+      >
+        {{ isLoggingIn ? '正在登录…' : '微信快捷登录' }}
+      </t-button>
+      <text class="login-note">登录仅用于识别约玩成员，不会读取你的聊天内容</text>
+    </view>
+  </block>
+</view>

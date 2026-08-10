@@ -1,0 +1,62 @@
+<view class="page join-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <view class="brand-mark">约</view>
+    <t-loading theme="circular" size="44rpx" text="正在确认邀请" />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">邀请暂时无法打开</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button theme="primary" shape="round" bindtap="onRetry">重新加载</t-button>
+    <text class="cancel-link" bindtap="onCancel">取消并返回首页</text>
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'invalid' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">这份邀请已不可用</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button theme="primary" shape="round" bindtap="onCancel">返回首页</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="invite-hero">
+      <view class="brand-mark">约</view>
+      <text class="eyebrow">GROUP INVITATION</text>
+      <text class="page-title">朋友邀请你加入约玩群组</text>
+      <text class="page-description">加入后，你可以看到群组成员，并和大家一起决定下次见面的安排。</text>
+    </view>
+
+    <view class="confirm-card">
+      <view class="people-mark">
+        <view class="person person-friend">友</view>
+        <view class="invite-line">
+          <view class="line-dot"></view>
+        </view>
+        <view class="person">你</view>
+      </view>
+      <text class="confirm-title">确认加入这个群组？</text>
+      <text class="confirm-note">点击后会由服务端验证邀请；邀请参数本身不会自动让你加入。</text>
+    </view>
+
+    <view wx:if="{{ joinErrorMessage }}" class="error-banner">
+      <text class="error-dot">!</text>
+      <text>{{ joinErrorMessage }}</text>
+    </view>
+
+    <view class="join-actions">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isJoining }}"
+        disabled="{{ isJoining }}"
+        bindtap="onJoin"
+      >
+        {{ isJoining ? '正在加入…' : '加入群组' }}
+      </t-button>
+      <text class="cancel-link" bindtap="onCancel">暂不加入，返回首页</text>
+    </view>
+  </block>
+</view>

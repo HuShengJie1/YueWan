@@ -1,0 +1,80 @@
+<view class="page create-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading theme="circular" size="44rpx" text="正在准备创建群组" />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">页面暂时无法打开</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button theme="primary" shape="round" bindtap="onRetry">重新加载</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="page-header">
+      <text class="eyebrow">NEW GROUP</text>
+      <text class="page-title">创建群组</text>
+      <text class="page-description">先把常约的朋友聚在一起，再决定去哪里、哪天见。</text>
+    </view>
+
+    <view class="form-card">
+      <view class="form-field">
+        <view class="field-heading">
+          <text class="field-label">群组名称</text>
+          <text class="required-mark">必填</text>
+        </view>
+        <view class="input-shell {{ nameError ? 'input-shell-error' : '' }}">
+          <input
+            class="text-input"
+            value="{{ name }}"
+            maxlength="40"
+            placeholder="例如：周末出逃小分队"
+            placeholder-class="input-placeholder"
+            bindinput="onNameInput"
+          />
+          <text class="input-count">{{ name.length }}/40</text>
+        </view>
+        <text wx:if="{{ nameError }}" class="field-error">{{ nameError }}</text>
+      </view>
+
+      <view class="form-field description-field">
+        <view class="field-heading">
+          <text class="field-label">群组简介</text>
+          <text class="optional-mark">选填</text>
+        </view>
+        <view class="textarea-shell {{ descriptionError ? 'input-shell-error' : '' }}">
+          <textarea
+            class="description-input"
+            value="{{ description }}"
+            maxlength="200"
+            auto-height
+            placeholder="简单说说你们通常想一起做什么"
+            placeholder-class="input-placeholder"
+            bindinput="onDescriptionInput"
+          />
+          <text class="textarea-count">{{ description.length }}/200</text>
+        </view>
+        <text wx:if="{{ descriptionError }}" class="field-error">{{ descriptionError }}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{ errorMessage }}" class="error-banner">
+      <text class="error-dot">!</text>
+      <text>{{ errorMessage }}</text>
+    </view>
+
+    <view class="submit-action">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isSubmitting }}"
+        disabled="{{ isSubmitting || !name }}"
+        bindtap="onSubmit"
+      >
+        {{ isSubmitting ? '正在创建…' : '创建群组' }}
+      </t-button>
+    </view>
+  </block>
+</view>
