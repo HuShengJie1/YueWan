@@ -59,7 +59,7 @@ UUIDv7 有更好的时间局部性，但 Python 3.12 标准库不原生生成；
 
 - 所有外键均由唯一约束、主键或显式索引以外键列作为最左列覆盖，支持关联查询和级联删除。
 - 聚合内部数据使用级联删除，例如删除 Hangout 会删除其 Proposal、投票和时间选项；所有指向 User 的业务记录使用 `RESTRICT`，防止误删历史创建者或投票人。
-- 群组 Hangout、候选活动和候选时间的列表索引包含稳定排序列及 UUID，可直接支持 `(created_at, id)` 或 `(starts_at, id)` 游标分页。
+- Hangout 跨状态列表使用 `(group_id, created_at, id)` 索引；原有 `(group_id, status, created_at, id)` 索引保留给按状态过滤场景。候选活动和候选时间的列表索引同样包含稳定排序列及 UUID，可直接支持 `(created_at, id)` 或 `(starts_at, id)` 游标分页。
 - `external_data` 使用 JSONB，但当前没有已确认的 JSON 查询路径，因此暂不建立 GIN 索引；出现稳定过滤需求后再通过新 migration 添加。
 - 数据库约束负责唯一性、非空白文本和时间区间等局部不变量。用户是否为群组有效成员、Event 所选 Proposal/TimeOption 是否属于同一 Hangout 等跨表业务规则由 Service 在事务中校验。
 
@@ -71,4 +71,4 @@ UUIDv7 有更好的时间局部性，但 Python 3.12 标准库不原生生成；
 4. 数据迁移需考虑锁、回滚和生产数据，不在模型导入时自动建表。
 5. 提交前至少运行 `alembic heads`；需要数据库验证时再运行 `alembic upgrade head`。
 
-当前 migration head 为 `20260809_0003`：`20260809_0001` 建立完整 MVP 业务 schema，`20260809_0002` 为 User 增加 `is_active` 和 `last_login_at`，`20260809_0003` 增加 `profile_completed`。升级到 `0003` 时已存在用户会标记为资料已完成，避免将旧用户重新导向资料页。
+当前 migration head 为 `20260810_0004`：`20260809_0001` 建立完整 MVP 业务 schema，`20260809_0002` 为 User 增加 `is_active` 和 `last_login_at`，`20260809_0003` 增加 `profile_completed`，`20260810_0004` 为 Hangout 增加跨状态稳定分页所需的 `(group_id, created_at, id)` 索引。升级到 `0003` 时已存在用户会标记为资料已完成，避免将旧用户重新导向资料页。

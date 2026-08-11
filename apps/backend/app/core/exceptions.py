@@ -183,3 +183,30 @@ class GroupConfirmationNameMismatchError(AppError):
             code=42214,
             message="Group confirmation name does not match",
         )
+
+
+class HangoutNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.NOT_FOUND,
+            code=40420,
+            message="Hangout not found",
+        )
+
+
+class HangoutEditForbiddenError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.FORBIDDEN,
+            code=40320,
+            message="Current member cannot edit this hangout",
+        )
+
+
+class HangoutStateConflictError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40920,
+            message="Hangout state does not allow this operation",
+        )

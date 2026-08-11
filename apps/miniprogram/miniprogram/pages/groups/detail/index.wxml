@@ -51,6 +51,75 @@
       </view>
     </view>
 
+    <view class="hangout-section">
+      <view class="section-heading hangout-heading">
+        <view>
+          <text class="section-title">约玩局</text>
+          <text class="section-subtitle">最近发起的安排</text>
+        </view>
+        <t-button
+          wx:if="{{ hangoutStatus === 'ready' }}"
+          size="small"
+          theme="primary"
+          shape="round"
+          loading="{{ isHangoutNavigating }}"
+          disabled="{{ isHangoutNavigating }}"
+          bindtap="onCreateHangout"
+        >
+          发起约玩
+        </t-button>
+      </view>
+
+      <view wx:if="{{ hangoutStatus === 'loading' }}" class="hangout-state-card">
+        <t-loading theme="circular" size="34rpx" text="正在读取最近约玩局" />
+      </view>
+
+      <view wx:elif="{{ hangoutStatus === 'error' }}" class="hangout-error-card">
+        <text>{{ hangoutErrorMessage }}</text>
+        <text class="retry-link" bindtap="onHangoutRetry">重新加载约玩局</text>
+      </view>
+
+      <view wx:elif="{{ hangoutStatus === 'empty' }}" class="hangout-empty-card">
+        <view class="hangout-empty-icon">约</view>
+        <text class="hangout-empty-title">还没有约玩局</text>
+        <text class="hangout-empty-description">从一个想法开始，把大家的下一次见面安排起来。</text>
+        <t-button
+          theme="primary"
+          shape="round"
+          loading="{{ isHangoutNavigating }}"
+          disabled="{{ isHangoutNavigating }}"
+          bindtap="onCreateHangout"
+        >
+          发起第一个约玩
+        </t-button>
+      </view>
+
+      <view wx:else class="recent-hangout-list">
+        <view
+          wx:for="{{ recentHangouts }}"
+          wx:key="id"
+          class="hangout-card"
+          data-hangout-id="{{ item.id }}"
+          bindtap="onHangoutTap"
+        >
+          <view class="hangout-card-heading">
+            <text class="hangout-title">{{ item.title }}</text>
+            <text class="hangout-status {{ item.statusClass }}">{{ item.statusLabel }}</text>
+          </view>
+          <text class="hangout-description">{{ item.descriptionText }}</text>
+          <view class="hangout-deadline">
+            <text>投票截止</text>
+            <text>{{ item.votingDeadlineText }}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{ hangoutHasMore }}" class="view-all-hangouts" bindtap="onViewAllHangouts">
+          <text>查看全部约玩局</text>
+          <text>›</text>
+        </view>
+      </view>
+    </view>
+
     <view class="section-heading">
       <text class="section-title">群组成员</text>
       <text class="section-count">{{ group.member_count }} 人</text>

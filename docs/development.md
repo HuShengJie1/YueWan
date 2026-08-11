@@ -100,7 +100,7 @@ uv run alembic upgrade head
 uv run alembic downgrade -1
 ```
 
-自动生成 migration 后必须人工审阅。初始 MVP 业务 schema 位于 revision `20260809_0001`，用户认证状态字段位于 `20260809_0002` 和 `20260809_0003`。
+自动生成 migration 后必须人工审阅。初始 MVP 业务 schema 位于 revision `20260809_0001`，用户认证状态字段位于 `20260809_0002` 和 `20260809_0003`，Hangout 跨状态列表索引位于 `20260810_0004`。
 
 ## 后端测试与 lint
 
@@ -111,15 +111,16 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-健康测试不需要运行 PostgreSQL。默认测试会跳过真实数据库的用户与群组 Repository 集成测试；本地数据库已迁移到 head 时可显式运行：
+健康测试不需要运行 PostgreSQL。默认测试会跳过真实数据库的用户、群组与 Hangout Repository 集成测试；本地数据库已迁移到 head 时可显式运行：
 
 ```bash
 RUN_DATABASE_TESTS=1 uv run pytest \
   tests/test_user_repository_integration.py \
-  tests/test_group_repository_integration.py
+  tests/test_group_repository_integration.py \
+  tests/test_hangout_repository_integration.py
 ```
 
-这些测试使用外层事务或显式清理，不保留测试 User、Group 或 GroupMember。
+这些测试使用外层事务或显式清理，不保留测试 User、Group、GroupMember 或 Hangout。
 
 ## 小程序安装和检查
 

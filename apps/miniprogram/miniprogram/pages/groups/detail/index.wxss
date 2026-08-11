@@ -34,6 +34,11 @@
 .group-description,
 .invite-title,
 .invite-description,
+.section-subtitle,
+.hangout-empty-title,
+.hangout-empty-description,
+.hangout-title,
+.hangout-description,
 .member-name,
 .member-role,
 .list-end,
@@ -193,6 +198,191 @@
 .section-count {
   color: #8b948d;
   font-size: 22rpx;
+}
+
+.hangout-section {
+  margin-top: 42rpx;
+}
+
+.hangout-heading {
+  margin-top: 0;
+}
+
+.section-subtitle {
+  margin-top: 5rpx;
+  color: #929b94;
+  font-size: 20rpx;
+}
+
+.hangout-state-card,
+.hangout-error-card,
+.hangout-empty-card {
+  margin-top: 18rpx;
+  border: 1rpx solid #e5e9e4;
+  border-radius: 27rpx;
+  background: #ffffff;
+}
+
+.hangout-state-card {
+  padding: 36rpx 24rpx;
+  color: #6f7b73;
+  text-align: center;
+}
+
+.hangout-error-card {
+  padding: 27rpx 24rpx;
+  color: #91483f;
+  background: #fff8f6;
+  font-size: 22rpx;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.hangout-error-card text {
+  display: block;
+}
+
+.hangout-empty-card {
+  display: flex;
+  padding: 38rpx 28rpx;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.hangout-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 21rpx;
+  color: #176c52;
+  background: #dff1e9;
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.hangout-empty-title {
+  margin-top: 20rpx;
+  color: #26332b;
+  font-size: 28rpx;
+  font-weight: 650;
+}
+
+.hangout-empty-description {
+  max-width: 500rpx;
+  margin: 10rpx 0 24rpx;
+  color: #7f8982;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.recent-hangout-list {
+  margin-top: 18rpx;
+}
+
+.hangout-card {
+  padding: 26rpx 25rpx 23rpx;
+  border: 1rpx solid #e5e9e4;
+  border-radius: 26rpx;
+  background: #ffffff;
+  box-shadow: 0 13rpx 36rpx rgba(35, 56, 45, 0.04);
+}
+
+.hangout-card + .hangout-card {
+  margin-top: 15rpx;
+}
+
+.hangout-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.hangout-title {
+  display: -webkit-box;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #1c2922;
+  font-size: 28rpx;
+  font-weight: 650;
+  line-height: 1.45;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.hangout-status {
+  flex: 0 0 auto;
+  padding: 7rpx 13rpx;
+  border-radius: 999rpx;
+  font-size: 18rpx;
+  font-weight: 650;
+}
+
+.status-draft {
+  color: #6e5a27;
+  background: #f7edcf;
+}
+
+.status-voting {
+  color: #176348;
+  background: #dcf0e7;
+}
+
+.status-confirmed {
+  color: #315f8d;
+  background: #e1edf8;
+}
+
+.status-cancelled,
+.status-finished {
+  color: #68716b;
+  background: #ecefeb;
+}
+
+.hangout-description {
+  display: -webkit-box;
+  margin-top: 12rpx;
+  overflow: hidden;
+  color: #78827b;
+  font-size: 22rpx;
+  line-height: 1.55;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.hangout-deadline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18rpx;
+  margin-top: 17rpx;
+  padding-top: 15rpx;
+  border-top: 1rpx solid #edf0eb;
+  color: #8d9690;
+  font-size: 20rpx;
+  line-height: 1.45;
+}
+
+.hangout-deadline text:last-child {
+  flex: 1;
+  color: #536058;
+  text-align: right;
+}
+
+.view-all-hangouts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  padding: 23rpx 0 4rpx;
+  color: #167d5d;
+  font-size: 23rpx;
+  font-weight: 650;
 }
 
 .member-list {

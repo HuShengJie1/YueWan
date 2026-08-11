@@ -1,0 +1,8 @@
+{
+  "enablePullDownRefresh": true,
+  "navigationBarTitleText": "全部约玩局",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-loading": "tdesign-miniprogram/loading/loading"
+  }
+}

@@ -22,7 +22,7 @@ from app.core.security import JWT_ALGORITHM, MINIMUM_SECRET_BYTES
 
 GROUP_INVITE_TOKEN_TYPE = "group_invite"
 GROUP_INVITE_TTL = timedelta(days=7)
-CursorKind = Literal["group_list", "group_member_list"]
+CursorKind = Literal["group_list", "group_member_list", "hangout_list"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +35,12 @@ class IssuedGroupInviteToken:
 class PageCursor:
     joined_at: datetime
     membership_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class HangoutPageCursor:
+    created_at: datetime
+    hangout_id: UUID
 
 
 class GroupInviteTokenService:
@@ -122,21 +128,41 @@ class SignedCursorCodec:
             raise ValueError("JWT secret must contain at least 32 bytes")
         self._secret = secret.encode()
 
-    def encode(self, cursor: PageCursor, *, kind: CursorKind, scope: str) -> str:
-        payload = {
-            "v": 1,
-            "kind": kind,
-            "scope": scope,
-            "joined_at": cursor.joined_at.astimezone(UTC).isoformat(timespec="microseconds"),
-            "membership_id": str(cursor.membership_id),
-        }
+    def encode(
+        self,
+        cursor: PageCursor | HangoutPageCursor,
+        *,
+        kind: CursorKind,
+        scope: str,
+    ) -> str:
+        if kind == "hangout_list":
+            if not isinstance(cursor, HangoutPageCursor):
+                raise TypeError("hangout_list requires HangoutPageCursor")
+            keyset = {
+                "created_at": cursor.created_at.astimezone(UTC).isoformat(timespec="microseconds"),
+                "hangout_id": str(cursor.hangout_id),
+            }
+        else:
+            if not isinstance(cursor, PageCursor):
+                raise TypeError("group cursors require PageCursor")
+            keyset = {
+                "joined_at": cursor.joined_at.astimezone(UTC).isoformat(timespec="microseconds"),
+                "membership_id": str(cursor.membership_id),
+            }
+        payload = {"v": 1, "kind": kind, "scope": scope, **keyset}
         encoded_payload = self._base64_encode(
             json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
         )
         signature = hmac.new(self._secret, encoded_payload.encode(), hashlib.sha256).digest()
         return f"{encoded_payload}.{self._base64_encode(signature)}"
 
-    def decode(self, value: str, *, kind: CursorKind, scope: str) -> PageCursor:
+    def decode(
+        self,
+        value: str,
+        *,
+        kind: CursorKind,
+        scope: str,
+    ) -> PageCursor | HangoutPageCursor:
         try:
             if len(value) > 2048:
                 raise ValueError("cursor is too long")
@@ -151,20 +177,21 @@ class SignedCursorCodec:
                 raise ValueError("invalid cursor signature")
 
             payload = json.loads(self._base64_decode(encoded_payload))
-            if not isinstance(payload, dict) or set(payload) != {
-                "v",
-                "kind",
-                "scope",
-                "joined_at",
-                "membership_id",
-            }:
+            expected_keys = {"v", "kind", "scope"}
+            if kind == "hangout_list":
+                expected_keys.update(("created_at", "hangout_id"))
+            else:
+                expected_keys.update(("joined_at", "membership_id"))
+            if not isinstance(payload, dict) or set(payload) != expected_keys:
                 raise ValueError("invalid cursor payload")
             if payload["v"] != 1 or payload["kind"] != kind or payload["scope"] != scope:
                 raise ValueError("cursor scope mismatch")
-            joined_at = datetime.fromisoformat(payload["joined_at"])
-            if joined_at.tzinfo is None or joined_at.utcoffset() is None:
+            timestamp_field = "created_at" if kind == "hangout_list" else "joined_at"
+            timestamp = datetime.fromisoformat(payload[timestamp_field])
+            if timestamp.tzinfo is None or timestamp.utcoffset() is None:
                 raise ValueError("cursor timestamp must be timezone-aware")
-            membership_id = UUID(payload["membership_id"])
+            item_id_field = "hangout_id" if kind == "hangout_list" else "membership_id"
+            item_id = UUID(payload[item_id_field])
         except (
             AttributeError,
             binascii.Error,
@@ -174,10 +201,12 @@ class SignedCursorCodec:
             ValueError,
         ) as exc:
             raise InvalidGroupCursorError from exc
-        return PageCursor(
-            joined_at=joined_at.astimezone(UTC),
-            membership_id=membership_id,
-        )
+        if kind == "hangout_list":
+            return HangoutPageCursor(
+                created_at=timestamp.astimezone(UTC),
+                hangout_id=item_id,
+            )
+        return PageCursor(joined_at=timestamp.astimezone(UTC), membership_id=item_id)
 
     @staticmethod
     def _base64_encode(value: bytes) -> str:

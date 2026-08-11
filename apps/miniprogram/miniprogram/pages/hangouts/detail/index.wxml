@@ -1,0 +1,65 @@
+<view class="page hangout-detail-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading theme="circular" size="44rpx" text="正在读取约玩局" />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">{{ errorTitle }}</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button wx:if="{{ canRetry }}" theme="primary" shape="round" bindtap="onRetry">
+      重新加载
+    </t-button>
+    <t-button wx:else variant="outline" shape="round" bindtap="onBack">返回上一页</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="detail-hero">
+      <view class="hero-meta">
+        <text class="status-pill {{ hangout.statusClass }}">{{ hangout.statusLabel }}</text>
+        <text class="group-caption">{{ group.name }}</text>
+      </view>
+      <text class="hangout-title">{{ hangout.title }}</text>
+      <text class="hangout-description">{{ hangout.descriptionText }}</text>
+    </view>
+
+    <view class="info-card">
+      <view class="info-row">
+        <view class="info-icon">创</view>
+        <view class="info-copy">
+          <text class="info-label">创建时间</text>
+          <text class="info-value">{{ hangout.createdAtText }}</text>
+        </view>
+      </view>
+      <view class="info-row">
+        <view class="info-icon deadline-icon">止</view>
+        <view class="info-copy">
+          <text class="info-label">投票截止时间</text>
+          <text class="info-value">{{ hangout.votingDeadlineText }}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="next-step-card">
+      <text class="next-step-eyebrow">下一步</text>
+      <text class="next-step-title">候选活动和时间将在下一步添加</text>
+      <text class="next-step-description">
+        本轮先保存约玩局的基本信息，暂不提供候选、投票或状态操作。
+      </text>
+    </view>
+
+    <view wx:if="{{ canEdit }}" class="edit-action">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isNavigating }}"
+        disabled="{{ isNavigating }}"
+        bindtap="onEditTap"
+      >
+        编辑约玩
+      </t-button>
+    </view>
+  </block>
+</view>

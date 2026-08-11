@@ -1,0 +1,138 @@
+<view class="page form-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading
+      theme="circular"
+      size="44rpx"
+      text="{{ mode === 'edit' ? '正在读取约玩局' : '正在准备表单' }}"
+    />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">{{ errorTitle }}</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button wx:if="{{ canRetry }}" theme="primary" shape="round" bindtap="onRetry">
+      重新加载
+    </t-button>
+    <t-button wx:else variant="outline" shape="round" bindtap="onBack">返回上一页</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="page-header">
+      <text class="eyebrow">{{ mode === 'edit' ? 'EDIT HANGOUT' : 'NEW HANGOUT' }}</text>
+      <text class="page-title">{{ mode === 'edit' ? '编辑约玩' : '发起约玩' }}</text>
+      <text class="page-description">
+        {{ mode === 'edit' ? '更新这次约玩的基本信息。' : '先记下想做的事，候选活动和时间稍后再补。' }}
+      </text>
+    </view>
+
+    <view class="form-card">
+      <view class="form-field">
+        <view class="field-heading">
+          <text class="field-label">约玩标题</text>
+          <text class="required-mark">必填</text>
+        </view>
+        <view class="input-shell {{ titleError ? 'input-shell-error' : '' }}">
+          <input
+            class="text-input"
+            value="{{ title }}"
+            maxlength="60"
+            disabled="{{ isSubmitting }}"
+            placeholder="例如：周末一起出去玩"
+            placeholder-class="input-placeholder"
+            bindinput="onTitleInput"
+          />
+          <text class="input-count">{{ titleCount }}/60</text>
+        </view>
+        <text wx:if="{{ titleError }}" class="field-error">{{ titleError }}</text>
+      </view>
+
+      <view class="form-field description-field">
+        <view class="field-heading">
+          <text class="field-label">约玩说明</text>
+          <text class="optional-mark">选填</text>
+        </view>
+        <view class="textarea-shell {{ descriptionError ? 'input-shell-error' : '' }}">
+          <textarea
+            class="description-input"
+            value="{{ description }}"
+            maxlength="500"
+            auto-height
+            disabled="{{ isSubmitting }}"
+            placeholder="先把想法和需要大家决定的事情写下来"
+            placeholder-class="input-placeholder"
+            bindinput="onDescriptionInput"
+          />
+          <text class="textarea-count">{{ descriptionCount }}/500</text>
+        </view>
+        <text wx:if="{{ descriptionError }}" class="field-error">{{ descriptionError }}</text>
+      </view>
+
+      <view class="form-field deadline-field">
+        <view class="field-heading">
+          <view>
+            <text class="field-label">投票截止时间</text>
+            <text class="field-hint">按本地时间选择，提交时自动转换</text>
+          </view>
+          <text
+            wx:if="{{ deadlineDate || deadlineTime }}"
+            class="clear-deadline"
+            bindtap="onClearDeadline"
+          >
+            清除
+          </text>
+          <text wx:else class="optional-mark">选填</text>
+        </view>
+
+        <view class="deadline-pickers {{ deadlineError ? 'input-shell-error' : '' }}">
+          <picker
+            class="deadline-picker"
+            mode="date"
+            value="{{ deadlineDate || datePickerValue }}"
+            start="{{ minimumDate }}"
+            disabled="{{ isSubmitting }}"
+            bindchange="onDeadlineDateChange"
+          >
+            <view class="picker-value {{ deadlineDate ? '' : 'picker-placeholder' }}">
+              <text class="picker-label">日期</text>
+              <text>{{ deadlineDate || '选择日期' }}</text>
+            </view>
+          </picker>
+          <view class="picker-divider"></view>
+          <picker
+            class="deadline-picker"
+            mode="time"
+            value="{{ deadlineTime || timePickerValue }}"
+            disabled="{{ isSubmitting }}"
+            bindchange="onDeadlineTimeChange"
+          >
+            <view class="picker-value {{ deadlineTime ? '' : 'picker-placeholder' }}">
+              <text class="picker-label">时间</text>
+              <text>{{ deadlineTime || '选择时间' }}</text>
+            </view>
+          </picker>
+        </view>
+        <text wx:if="{{ deadlineError }}" class="field-error">{{ deadlineError }}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{ errorMessage }}" class="error-banner">
+      <text class="error-dot">!</text>
+      <text>{{ errorMessage }}</text>
+    </view>
+
+    <view class="submit-action">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isSubmitting }}"
+        disabled="{{ isSubmitting || !formCanSubmit }}"
+        bindtap="onSubmit"
+      >
+        {{ isSubmitting ? '正在保存…' : mode === 'edit' ? '保存修改' : '创建约玩局' }}
+      </t-button>
+    </view>
+  </block>
+</view>

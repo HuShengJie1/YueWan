@@ -301,6 +301,89 @@
 
 字段格式、UUID 路径参数或 `limit` 校验失败继续使用通用 `422 / 40001`。所有错误响应均隐藏 SQL、token、内部堆栈和群组存在性细节。
 
+## 约玩局契约
+
+以下接口均需要 `Authorization: Bearer <access_token>`，并使用统一响应 envelope。群组不存在或当前用户不是 active 成员统一返回 `40410`；约玩局不存在、与路径群组不匹配或不可见统一返回 `40420`。
+
+约玩局响应：
+
+```json
+{
+  "id": "5b017070-0501-4b76-99dc-3aa57bc395ca",
+  "group_id": "62429e4e-24cf-495c-b223-f63891147cf7",
+  "created_by_user_id": "28a03322-3016-4142-b762-44ce83c5f1c1",
+  "title": "周末一起出去玩",
+  "description": null,
+  "status": "draft",
+  "voting_deadline": null,
+  "confirmed_at": null,
+  "cancelled_at": null,
+  "created_at": "2026-08-10T03:00:00Z",
+  "updated_at": "2026-08-10T03:00:00Z"
+}
+```
+
+### 创建约玩局
+
+`POST /api/v1/groups/{group_id}/hangouts`
+
+请求：
+
+```json
+{
+  "title": "周末一起出去玩",
+  "description": "先把时间和活动定下来",
+  "voting_deadline": "2026-08-15T12:00:00Z"
+}
+```
+
+- `title` 去除首尾空白后长度为 1–60。
+- `description` 可为 `null`，去除首尾空白后最长 500；空字符串或纯空白转换为 `null`。
+- `voting_deadline` 可为 `null`；存在时必须包含时区、晚于请求校验时刻，并转换为 UTC。
+- 只有群组 active 成员可创建；`created_by_user_id` 固定为当前用户，`status` 固定为 `draft`。客户端提交 `status`、`group_id`、`created_by_user_id` 或其他未声明字段会返回通用 `422 / 40001`。
+- 成功返回 `201 Created`，设置指向约玩局详情的 `Location`。
+
+### 约玩局列表
+
+`GET /api/v1/groups/{group_id}/hangouts?cursor=&limit=`
+
+- 只有群组 active 成员可读。
+- `limit` 默认为 20，范围为 1–100。
+- 按 `created_at DESC, id DESC` 跨状态稳定排序。
+- cursor 是签名不透明值，绑定路径 `group_id` 和 `hangout_list` 用途，不能跨群组或与其他列表复用；无效值返回 `42213`。
+- 成功响应的 `data` 使用标准 CursorPage envelope，`items` 为约玩局响应数组。
+
+### 约玩局详情
+
+`GET /api/v1/groups/{group_id}/hangouts/{hangout_id}`
+
+- 只有群组 active 成员可读。
+- 后端同时按 `group_id` 和 `hangout_id` 查询；属于其他群组的 Hangout 不可见并返回 `40420`。
+
+### 更新约玩局草稿
+
+`PUT /api/v1/groups/{group_id}/hangouts/{hangout_id}`
+
+- 请求字段和创建约玩局一致，是对当前可编辑字段的完整更新；不能修改 `status`、`group_id` 或 `created_by_user_id`。
+- 只有约玩局创建者或群主可以编辑；其他 active 成员返回 `40320`。
+- 只有 `draft` 状态允许编辑，其他状态返回 `40920`。
+- Repository 在写入前锁定当前 active 成员关系和目标 Hangout；校验、更新、提交处于同一事务，任一步失败都会回滚。
+- 成功返回 `200 OK` 和更新后的约玩局响应。
+
+本阶段不提供候选活动、候选时间、投票、开始投票、取消、确认活动、状态流转或 Event 创建接口。
+
+### 约玩局错误码
+
+| HTTP | 业务 code | 语义                                             |
+| ---- | --------- | ------------------------------------------------ |
+| 403  | `40320`   | 当前 active 成员不是约玩局创建者或群主           |
+| 404  | `40410`   | 群组不存在或当前用户不是 active 成员             |
+| 404  | `40420`   | 约玩局不存在、与路径群组不匹配或不可见           |
+| 409  | `40920`   | 约玩局当前状态不允许修改                         |
+| 422  | `42213`   | 分页 cursor 无效、被篡改、用途或群组作用域不匹配 |
+
+字段格式、UUID 路径参数、未声明请求字段或 `limit` 校验失败继续使用通用 `422 / 40001`。
+
 ### 头像上传错误码
 
 | HTTP | 业务 code | 语义                     |

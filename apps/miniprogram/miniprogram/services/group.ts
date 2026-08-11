@@ -1,13 +1,13 @@
 import { API_V1_PREFIX } from "../constants/api";
 import type {
   CreateGroupRequest,
-  CursorPage,
   DeleteGroupRequest,
   GroupDetail,
   GroupInviteToken,
   GroupMember,
   GroupSummary,
 } from "../types/group";
+import type { CursorPage } from "../types/pagination";
 import { request } from "./request";
 
 const DEFAULT_PAGE_LIMIT = 20;

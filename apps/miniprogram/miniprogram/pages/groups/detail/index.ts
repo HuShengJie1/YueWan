@@ -4,21 +4,28 @@ import {
   getGroup,
   listGroupMembers,
 } from "../../../services/group";
+import { listHangouts } from "../../../services/hangout";
 import { ApiError } from "../../../services/request";
 import { bootstrapAuth, getAuthState } from "../../../stores/auth";
 import type { GroupDetail, GroupMember } from "../../../types/group";
+import type { Hangout } from "../../../types/hangout";
 import { getUserFacingError } from "../../../utils/errors";
-import { isValidGroupId } from "../../../utils/group";
+import { isValidGroupId, isValidUuid } from "../../../utils/group";
+import { buildHangoutView, type HangoutView } from "../../../utils/hangout";
 import { reLaunchToIndex, reLaunchToLogin } from "../../../utils/navigation";
 
 type DetailPageStatus = "loading" | "error" | "ready";
 type InviteStatus = "idle" | "loading" | "error" | "ready";
+type HangoutSectionStatus = "loading" | "empty" | "error" | "ready";
 
 const PAGE_LIMIT = 30;
+const RECENT_HANGOUT_LIMIT = 3;
 const INVITE_EXPIRY_SKEW_MS = 30_000;
 
 const requestedMemberCursors = new Set<string>();
 let inviteRequestGeneration = 0;
+let hangoutRequestGeneration = 0;
+let hangoutRequestActive = false;
 
 function mergeUniqueMembers(current: GroupMember[], incoming: GroupMember[]): GroupMember[] {
   const membersByUserId = new Map(current.map((member) => [member.user_id, member]));
@@ -54,6 +61,28 @@ function getMemberPaginationError(error: unknown): string {
   return getUserFacingError(error, "更多成员加载失败，请重试");
 }
 
+function buildRecentHangouts(hangouts: Hangout[]): HangoutView[] {
+  return hangouts.map(buildHangoutView);
+}
+
+function getRecentHangoutError(error: unknown): string {
+  if (error instanceof ApiError && error.code === 40410) {
+    return "群组状态已变化，暂时无法读取约玩局。";
+  }
+
+  return getUserFacingError(error, "约玩局加载失败，请稍后重试");
+}
+
+function navigateTo(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    wx.navigateTo({
+      url,
+      success: () => resolve(),
+      fail: ({ errMsg }) => reject(new Error(errMsg)),
+    });
+  });
+}
+
 Page({
   data: {
     pageStatus: "loading" as DetailPageStatus,
@@ -65,6 +94,11 @@ Page({
     hasMoreMembers: false,
     isLoadingMoreMembers: false,
     memberLoadError: "",
+    hangoutStatus: "loading" as HangoutSectionStatus,
+    recentHangouts: [] as HangoutView[],
+    hangoutHasMore: false,
+    hangoutErrorMessage: "",
+    isHangoutNavigating: false,
     errorTitle: "",
     errorMessage: "",
     canRetry: true,
@@ -105,10 +139,17 @@ Page({
       wx.hideShareMenu();
       void this.prepareInvite();
     }
+
+    if (this.data.pageStatus === "ready" && this.data.groupId) {
+      this.setData({ isHangoutNavigating: false });
+      void this.loadRecentHangouts();
+    }
   },
 
   onUnload() {
     inviteRequestGeneration += 1;
+    hangoutRequestGeneration += 1;
+    hangoutRequestActive = false;
     requestedMemberCursors.clear();
   },
 
@@ -120,12 +161,19 @@ Page({
 
     wx.hideShareMenu();
     inviteRequestGeneration += 1;
+    hangoutRequestGeneration += 1;
+    hangoutRequestActive = false;
     this.setData({
       pageStatus: "loading",
       members: [],
       nextMemberCursor: null,
       hasMoreMembers: false,
       memberLoadError: "",
+      hangoutStatus: "loading",
+      recentHangouts: [],
+      hangoutHasMore: false,
+      hangoutErrorMessage: "",
+      isHangoutNavigating: false,
       errorMessage: "",
       inviteStatus: "idle",
       inviteToken: "",
@@ -175,6 +223,7 @@ Page({
       });
       wx.setNavigationBarTitle({ title: group.name });
       void this.prepareInvite();
+      void this.loadRecentHangouts();
     } catch (error) {
       if (getAuthState().status === "unauthenticated") {
         await reLaunchToLogin("expired");
@@ -248,6 +297,104 @@ Page({
 
   onInviteRetry() {
     void this.prepareInvite();
+  },
+
+  async loadRecentHangouts() {
+    if (!this.data.groupId || hangoutRequestActive) {
+      return;
+    }
+
+    hangoutRequestActive = true;
+    const requestGeneration = ++hangoutRequestGeneration;
+    this.setData({ hangoutStatus: "loading", hangoutErrorMessage: "" });
+    try {
+      const page = await listHangouts(this.data.groupId, { limit: RECENT_HANGOUT_LIMIT });
+      if (requestGeneration !== hangoutRequestGeneration) {
+        return;
+      }
+
+      const recentHangouts = buildRecentHangouts(page.items);
+      this.setData({
+        hangoutStatus: recentHangouts.length > 0 ? "ready" : "empty",
+        recentHangouts,
+        hangoutHasMore: page.has_more,
+      });
+    } catch (error) {
+      if (requestGeneration !== hangoutRequestGeneration) {
+        return;
+      }
+
+      if (getAuthState().status === "unauthenticated") {
+        await reLaunchToLogin("expired");
+        return;
+      }
+
+      this.setData({
+        hangoutStatus: "error",
+        hangoutErrorMessage: getRecentHangoutError(error),
+      });
+    } finally {
+      if (requestGeneration === hangoutRequestGeneration) {
+        hangoutRequestActive = false;
+      }
+    }
+  },
+
+  onHangoutRetry() {
+    if (this.data.hangoutStatus !== "loading") {
+      void this.loadRecentHangouts();
+    }
+  },
+
+  async onCreateHangout() {
+    if (!this.data.groupId || this.data.isHangoutNavigating) {
+      return;
+    }
+
+    this.setData({ isHangoutNavigating: true });
+    try {
+      await navigateTo(
+        `/pages/hangouts/form/index?group_id=${encodeURIComponent(this.data.groupId)}`,
+      );
+    } catch {
+      this.setData({ isHangoutNavigating: false });
+      wx.showToast({ title: "页面打开失败，请重试", icon: "none" });
+    }
+  },
+
+  async onHangoutTap(event: WechatMiniprogram.TouchEvent) {
+    const hangoutId = String(event.currentTarget.dataset.hangoutId ?? "");
+    if (!isValidUuid(hangoutId) || this.data.isHangoutNavigating) {
+      return;
+    }
+
+    this.setData({ isHangoutNavigating: true });
+    try {
+      const query = [
+        `group_id=${encodeURIComponent(this.data.groupId)}`,
+        `hangout_id=${encodeURIComponent(hangoutId)}`,
+      ].join("&");
+      await navigateTo(`/pages/hangouts/detail/index?${query}`);
+    } catch {
+      this.setData({ isHangoutNavigating: false });
+      wx.showToast({ title: "详情打开失败，请重试", icon: "none" });
+    }
+  },
+
+  async onViewAllHangouts() {
+    if (!this.data.groupId || this.data.isHangoutNavigating) {
+      return;
+    }
+
+    this.setData({ isHangoutNavigating: true });
+    try {
+      await navigateTo(
+        `/pages/hangouts/list/index?group_id=${encodeURIComponent(this.data.groupId)}`,
+      );
+    } catch {
+      this.setData({ isHangoutNavigating: false });
+      wx.showToast({ title: "列表打开失败，请重试", icon: "none" });
+    }
   },
 
   async onReachBottom() {
@@ -375,6 +522,8 @@ Page({
         pageStatus: "loading",
         group: null,
         members: [],
+        recentHangouts: [],
+        hangoutStatus: "loading",
         inviteStatus: "idle",
         inviteToken: "",
         inviteExpiresAt: 0,
@@ -408,6 +557,8 @@ Page({
             pageStatus: "loading",
             group: null,
             members: [],
+            recentHangouts: [],
+            hangoutStatus: "loading",
             inviteStatus: "idle",
             inviteToken: "",
             inviteExpiresAt: 0,

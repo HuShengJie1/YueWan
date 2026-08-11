@@ -14,6 +14,7 @@ class Hangout(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("length(btrim(title)) > 0", name="title_not_blank"),
         Index("ix_hangouts_group_status_created", "group_id", "status", "created_at", "id"),
+        Index("ix_hangouts_group_created", "group_id", "created_at", "id"),
         Index("ix_hangouts_created_by_user_id", "created_by_user_id"),
     )
 

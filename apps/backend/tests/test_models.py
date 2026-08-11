@@ -105,3 +105,10 @@ def test_user_authentication_fields_are_registered() -> None:
     assert users.c.profile_completed.server_default is not None
     assert isinstance(users.c.last_login_at.type, DateTime)
     assert users.c.last_login_at.type.timezone is True
+
+
+def test_hangout_cross_status_list_index_matches_keyset_order() -> None:
+    hangouts = Base.metadata.tables["hangouts"]
+    index_columns = {tuple(column.name for column in index.columns) for index in hangouts.indexes}
+
+    assert ("group_id", "created_at", "id") in index_columns

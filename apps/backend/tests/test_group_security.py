@@ -14,6 +14,7 @@ from app.core.exceptions import (
 from app.core.group_security import (
     GROUP_INVITE_TOKEN_TYPE,
     GroupInviteTokenService,
+    HangoutPageCursor,
     PageCursor,
     SignedCursorCodec,
 )
@@ -124,6 +125,19 @@ def test_signed_cursor_round_trip_is_scoped() -> None:
         codec.decode(encoded, kind="group_list", scope="user:two")
     with pytest.raises(InvalidGroupCursorError):
         codec.decode(encoded, kind="group_member_list", scope="user:one")
+
+
+def test_hangout_cursor_is_group_scoped_and_kind_isolated() -> None:
+    codec = SignedCursorCodec(secret=SECRET)
+    cursor = HangoutPageCursor(created_at=datetime.now(UTC), hangout_id=uuid4())
+
+    encoded = codec.encode(cursor, kind="hangout_list", scope="group:one")
+
+    assert codec.decode(encoded, kind="hangout_list", scope="group:one") == cursor
+    with pytest.raises(InvalidGroupCursorError):
+        codec.decode(encoded, kind="hangout_list", scope="group:two")
+    with pytest.raises(InvalidGroupCursorError):
+        codec.decode(encoded, kind="group_list", scope="group:one")
 
 
 @pytest.mark.parametrize("cursor", ["invalid", "a.b.c", "payload.signature-tampered"])

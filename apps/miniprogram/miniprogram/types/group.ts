@@ -33,9 +33,3 @@ export interface GroupInviteToken {
   invite_token: string;
   expires_at: string;
 }
-
-export interface CursorPage<T> {
-  items: T[];
-  next_cursor: string | null;
-  has_more: boolean;
-}

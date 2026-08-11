@@ -1,0 +1,85 @@
+<view class="page list-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading theme="circular" size="44rpx" text="正在读取约玩局" />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">{{ errorTitle }}</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button wx:if="{{ canRetry }}" theme="primary" shape="round" bindtap="onRetry">
+      重新加载
+    </t-button>
+    <t-button wx:else variant="outline" shape="round" bindtap="onBack">返回上一页</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="page-header">
+      <view class="header-copy">
+        <text class="eyebrow">HANGOUTS</text>
+        <text class="page-title">全部约玩局</text>
+        <text class="page-description">把每一次想见面的念头，慢慢定成大家都方便的安排。</text>
+      </view>
+      <t-button
+        theme="primary"
+        shape="round"
+        loading="{{ isNavigating }}"
+        disabled="{{ isNavigating || isRefreshing }}"
+        bindtap="onCreateTap"
+      >
+        发起约玩
+      </t-button>
+    </view>
+
+    <view wx:if="{{ refreshErrorMessage }}" class="refresh-error" bindtap="onRefreshRetry">
+      <text>{{ refreshErrorMessage }}</text>
+      <text class="retry-link">点击重新加载</text>
+    </view>
+
+    <view wx:if="{{ pageStatus === 'empty' }}" class="empty-card">
+      <view class="empty-icon">约</view>
+      <text class="empty-title">还没有约玩局</text>
+      <text class="empty-description">发起第一个约玩，把时间和想法先记下来。</text>
+      <t-button
+        theme="primary"
+        shape="round"
+        loading="{{ isNavigating }}"
+        disabled="{{ isNavigating }}"
+        bindtap="onCreateTap"
+      >
+        发起第一个约玩
+      </t-button>
+    </view>
+
+    <view wx:else class="hangout-list">
+      <view
+        wx:for="{{ hangouts }}"
+        wx:key="id"
+        class="hangout-card"
+        data-hangout-id="{{ item.id }}"
+        bindtap="onHangoutTap"
+      >
+        <view class="card-heading">
+          <text class="hangout-title">{{ item.title }}</text>
+          <text class="status-pill {{ item.statusClass }}">{{ item.statusLabel }}</text>
+        </view>
+        <text class="hangout-description">{{ item.descriptionText }}</text>
+        <view class="deadline-row">
+          <text class="deadline-label">投票截止</text>
+          <text class="deadline-value">{{ item.votingDeadlineText }}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{ isLoadingMore }}" class="pagination-state">
+        <t-loading theme="circular" size="34rpx" text="正在加载更多约玩局" />
+      </view>
+      <view wx:elif="{{ loadMoreError }}" class="pagination-error" bindtap="onLoadMoreRetry">
+        <text>{{ loadMoreError }}</text>
+        <text class="retry-link">点击重新加载</text>
+      </view>
+      <text wx:elif="{{ !hasMore && hangouts.length > 0 }}" class="list-end">
+        全部约玩局都在这里了
+      </text>
+    </view>
+  </block>
+</view>
