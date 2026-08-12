@@ -111,16 +111,17 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-健康测试不需要运行 PostgreSQL。默认测试会跳过真实数据库的用户、群组与 Hangout Repository 集成测试；本地数据库已迁移到 head 时可显式运行：
+健康测试不需要运行 PostgreSQL。默认测试会跳过真实数据库的用户、群组、Hangout 与候选 Repository 集成测试；本地数据库已迁移到 head 时可显式运行：
 
 ```bash
 RUN_DATABASE_TESTS=1 uv run pytest \
   tests/test_user_repository_integration.py \
   tests/test_group_repository_integration.py \
-  tests/test_hangout_repository_integration.py
+  tests/test_hangout_repository_integration.py \
+  tests/test_candidate_repository_integration.py
 ```
 
-这些测试使用外层事务或显式清理，不保留测试 User、Group、GroupMember 或 Hangout。
+这些测试使用外层事务或显式清理，不保留测试 User、Group、GroupMember、Hangout、Proposal 或 TimeOption。
 
 ## 小程序安装和检查
 

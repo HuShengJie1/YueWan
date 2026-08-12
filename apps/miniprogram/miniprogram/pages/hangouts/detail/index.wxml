@@ -10,7 +10,7 @@
     <t-button wx:if="{{ canRetry }}" theme="primary" shape="round" bindtap="onRetry">
       重新加载
     </t-button>
-    <t-button wx:else variant="outline" shape="round" bindtap="onBack">返回上一页</t-button>
+    <t-button wx:else variant="outline" shape="round" bindtap="onBack">安全返回</t-button>
   </view>
 
   <block wx:else>
@@ -21,6 +21,11 @@
       </view>
       <text class="hangout-title">{{ hangout.title }}</text>
       <text class="hangout-description">{{ hangout.descriptionText }}</text>
+    </view>
+
+    <view wx:if="{{ detailRefreshError }}" class="refresh-error" bindtap="onRetry">
+      <text>{{ detailRefreshError }}</text>
+      <text class="retry-link">点击重新加载</text>
     </view>
 
     <view class="info-card">
@@ -40,12 +45,260 @@
       </view>
     </view>
 
-    <view class="next-step-card">
-      <text class="next-step-eyebrow">下一步</text>
-      <text class="next-step-title">候选活动和时间将在下一步添加</text>
-      <text class="next-step-description">
-        本轮先保存约玩局的基本信息，暂不提供候选、投票或状态操作。
+    <view class="candidate-section">
+      <view class="section-heading">
+        <view class="section-copy">
+          <text class="section-title">候选活动</text>
+          <text class="section-subtitle">大家想去哪里、想做什么</text>
+        </view>
+        <t-button
+          wx:if="{{ hangout.status === 'draft' }}"
+          theme="primary"
+          variant="outline"
+          size="small"
+          shape="round"
+          loading="{{ isNavigating && pendingRefreshSection === 'proposal' }}"
+          disabled="{{ isNavigating || deletingCandidateId }}"
+          bindtap="onAddProposalTap"
+        >
+          添加候选
+        </t-button>
+      </view>
+
+      <view wx:if="{{ proposalRefreshError }}" class="refresh-error section-refresh-error" bindtap="onProposalRefreshRetry">
+        <text>{{ proposalRefreshError }}</text>
+        <text class="retry-link">点击重试</text>
+      </view>
+
+      <view wx:if="{{ proposalStatus === 'loading' }}" class="section-state-card">
+        <t-loading theme="circular" size="36rpx" text="正在读取候选活动" />
+      </view>
+
+      <view wx:elif="{{ proposalStatus === 'error' }}" class="section-error-card">
+        <text>{{ proposalErrorMessage }}</text>
+        <t-button size="small" variant="text" theme="primary" bindtap="onProposalRetry">
+          重新加载
+        </t-button>
+      </view>
+
+      <view wx:elif="{{ proposalStatus === 'empty' }}" class="section-empty-card">
+        <view class="empty-icon">想</view>
+        <text class="empty-title">还没有候选活动</text>
+        <text class="empty-description">
+          {{ hangout.status === 'draft' ? '先添加一个大家可以讨论的活动。' : '这次约玩没有候选活动。' }}
+        </text>
+        <t-button
+          wx:if="{{ hangout.status === 'draft' }}"
+          theme="primary"
+          shape="round"
+          size="small"
+          disabled="{{ isNavigating }}"
+          bindtap="onAddProposalTap"
+        >
+          添加第一个候选
+        </t-button>
+      </view>
+
+      <view wx:else class="candidate-list">
+        <view wx:for="{{ proposals }}" wx:key="id" class="proposal-card">
+          <view class="candidate-card-heading">
+            <text class="candidate-title">{{ item.title }}</text>
+            <view
+              wx:if="{{ hangout.status === 'draft' && item.can_manage }}"
+              class="candidate-actions"
+            >
+              <t-button
+                size="small"
+                variant="text"
+                theme="primary"
+                data-proposal-id="{{ item.id }}"
+                disabled="{{ deletingCandidateId || isNavigating }}"
+                bindtap="onEditProposalTap"
+              >
+                编辑
+              </t-button>
+              <t-button
+                size="small"
+                variant="text"
+                theme="danger"
+                data-proposal-id="{{ item.id }}"
+                loading="{{ deletingCandidateType === 'proposal' && deletingCandidateId === item.id }}"
+                disabled="{{ deletingCandidateId || isNavigating }}"
+                bindtap="onDeleteProposalTap"
+              >
+                删除
+              </t-button>
+            </view>
+          </view>
+          <view class="location-row">
+            <text class="location-marker">地</text>
+            <text class="location-text">{{ item.locationText }}</text>
+          </view>
+          <text class="candidate-description">{{ item.descriptionSummary }}</text>
+          <view wx:if="{{ item.externalLinkText }}" class="external-link-hint">
+            <text class="link-marker">链</text>
+            <text>{{ item.externalLinkText }}</text>
+          </view>
+          <text class="candidate-created">{{ item.createdAtText }}</text>
+        </view>
+
+        <view wx:if="{{ isLoadingMoreProposals }}" class="pagination-state">
+          <t-loading theme="circular" size="32rpx" text="正在加载更多候选活动" />
+        </view>
+        <view
+          wx:elif="{{ proposalLoadMoreError }}"
+          class="pagination-error"
+          bindtap="onProposalLoadMoreTap"
+        >
+          <text>{{ proposalLoadMoreError }}</text>
+          <text class="retry-link">点击重新加载</text>
+        </view>
+        <t-button
+          wx:elif="{{ hasMoreProposals }}"
+          block
+          variant="text"
+          theme="primary"
+          bindtap="onProposalLoadMoreTap"
+        >
+          加载更多候选活动
+        </t-button>
+        <text wx:else class="list-end">全部候选活动都在这里了</text>
+      </view>
+    </view>
+
+    <view class="candidate-section time-section">
+      <view class="section-heading">
+        <view class="section-copy">
+          <text class="section-title">候选时间</text>
+          <text class="section-subtitle">时间均按你的本地时区显示</text>
+        </view>
+        <t-button
+          wx:if="{{ hangout.status === 'draft' }}"
+          theme="primary"
+          variant="outline"
+          size="small"
+          shape="round"
+          loading="{{ isNavigating && pendingRefreshSection === 'time-option' }}"
+          disabled="{{ isNavigating || deletingCandidateId }}"
+          bindtap="onAddTimeOptionTap"
+        >
+          添加时间
+        </t-button>
+      </view>
+
+      <view wx:if="{{ timeOptionRefreshError }}" class="refresh-error section-refresh-error" bindtap="onTimeOptionRefreshRetry">
+        <text>{{ timeOptionRefreshError }}</text>
+        <text class="retry-link">点击重试</text>
+      </view>
+
+      <view wx:if="{{ timeOptionStatus === 'loading' }}" class="section-state-card">
+        <t-loading theme="circular" size="36rpx" text="正在读取候选时间" />
+      </view>
+
+      <view wx:elif="{{ timeOptionStatus === 'error' }}" class="section-error-card">
+        <text>{{ timeOptionErrorMessage }}</text>
+        <t-button size="small" variant="text" theme="primary" bindtap="onTimeOptionRetry">
+          重新加载
+        </t-button>
+      </view>
+
+      <view wx:elif="{{ timeOptionStatus === 'empty' }}" class="section-empty-card">
+        <view class="empty-icon time-empty-icon">时</view>
+        <text class="empty-title">还没有候选时间</text>
+        <text class="empty-description">
+          {{ hangout.status === 'draft' ? '添加一个未来时间，方便大家稍后选择。' : '这次约玩没有候选时间。' }}
+        </text>
+        <t-button
+          wx:if="{{ hangout.status === 'draft' }}"
+          theme="primary"
+          shape="round"
+          size="small"
+          disabled="{{ isNavigating }}"
+          bindtap="onAddTimeOptionTap"
+        >
+          添加第一个时间
+        </t-button>
+      </view>
+
+      <view wx:else class="candidate-list">
+        <view wx:for="{{ timeOptions }}" wx:key="id" class="time-option-card">
+          <view class="candidate-card-heading">
+            <view class="time-heading-copy">
+              <text class="time-date">{{ item.localDateText }}</text>
+              <text class="time-label">{{ item.displayLabelText }}</text>
+            </view>
+            <view
+              wx:if="{{ hangout.status === 'draft' && item.can_manage }}"
+              class="candidate-actions"
+            >
+              <t-button
+                size="small"
+                variant="text"
+                theme="primary"
+                data-time-option-id="{{ item.id }}"
+                disabled="{{ deletingCandidateId || isNavigating }}"
+                bindtap="onEditTimeOptionTap"
+              >
+                编辑
+              </t-button>
+              <t-button
+                size="small"
+                variant="text"
+                theme="danger"
+                data-time-option-id="{{ item.id }}"
+                loading="{{ deletingCandidateType === 'time-option' && deletingCandidateId === item.id }}"
+                disabled="{{ deletingCandidateId || isNavigating }}"
+                bindtap="onDeleteTimeOptionTap"
+              >
+                删除
+              </t-button>
+            </view>
+          </view>
+          <view class="time-range">
+            <view class="time-value-block">
+              <text class="time-value-label">开始</text>
+              <text class="time-value">{{ item.startTimeText }}</text>
+            </view>
+            <view class="time-range-line"></view>
+            <view class="time-value-block end-time-block">
+              <text class="time-value-label">结束</text>
+              <text class="time-value {{ item.ends_at ? '' : 'time-value-muted' }}">
+                {{ item.endDisplayText }}
+              </text>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{ isLoadingMoreTimeOptions }}" class="pagination-state">
+          <t-loading theme="circular" size="32rpx" text="正在加载更多候选时间" />
+        </view>
+        <view
+          wx:elif="{{ timeOptionLoadMoreError }}"
+          class="pagination-error"
+          bindtap="onTimeOptionLoadMoreTap"
+        >
+          <text>{{ timeOptionLoadMoreError }}</text>
+          <text class="retry-link">点击重新加载</text>
+        </view>
+        <t-button
+          wx:elif="{{ hasMoreTimeOptions }}"
+          block
+          variant="text"
+          theme="primary"
+          bindtap="onTimeOptionLoadMoreTap"
+        >
+          加载更多候选时间
+        </t-button>
+        <text wx:else class="list-end">全部候选时间都在这里了</text>
+      </view>
+    </view>
+
+    <view class="phase-note-card">
+      <text class="phase-note-eyebrow">当前阶段</text>
+      <text class="phase-note-title">
+        {{ hangout.status === 'draft' ? '草稿阶段可以继续完善候选' : '候选内容已停止编辑' }}
       </text>
+      <text class="phase-note-description">活动投票、时间投票和票数统计将在下一轮开放。</text>
     </view>
 
     <view wx:if="{{ canEdit }}" class="edit-action">
@@ -54,8 +307,8 @@
         theme="primary"
         size="large"
         shape="round"
-        loading="{{ isNavigating }}"
-        disabled="{{ isNavigating }}"
+        loading="{{ isNavigating && pendingRefreshSection === 'all' }}"
+        disabled="{{ isNavigating || deletingCandidateId }}"
         bindtap="onEditTap"
       >
         编辑约玩

@@ -16,7 +16,9 @@ from app.core.group_security import (
     GroupInviteTokenService,
     HangoutPageCursor,
     PageCursor,
+    ProposalPageCursor,
     SignedCursorCodec,
+    TimeOptionPageCursor,
 )
 from app.core.security import JWT_ALGORITHM, AccessTokenService
 
@@ -138,6 +140,28 @@ def test_hangout_cursor_is_group_scoped_and_kind_isolated() -> None:
         codec.decode(encoded, kind="hangout_list", scope="group:two")
     with pytest.raises(InvalidGroupCursorError):
         codec.decode(encoded, kind="group_list", scope="group:one")
+
+
+def test_candidate_cursors_bind_group_hangout_and_list_purpose() -> None:
+    codec = SignedCursorCodec(secret=SECRET)
+    scope = f"group:{uuid4()}:hangout:{uuid4()}"
+    proposal_cursor = ProposalPageCursor(created_at=datetime.now(UTC), proposal_id=uuid4())
+
+    encoded_proposal = codec.encode(proposal_cursor, kind="proposal_list", scope=scope)
+
+    assert codec.decode(encoded_proposal, kind="proposal_list", scope=scope) == proposal_cursor
+    with pytest.raises(InvalidGroupCursorError):
+        codec.decode(
+            encoded_proposal,
+            kind="proposal_list",
+            scope=f"group:{uuid4()}:hangout:{uuid4()}",
+        )
+    with pytest.raises(InvalidGroupCursorError):
+        codec.decode(encoded_proposal, kind="time_option_list", scope=scope)
+
+    time_cursor = TimeOptionPageCursor(starts_at=datetime.now(UTC), time_option_id=uuid4())
+    encoded_time = codec.encode(time_cursor, kind="time_option_list", scope=scope)
+    assert codec.decode(encoded_time, kind="time_option_list", scope=scope) == time_cursor
 
 
 @pytest.mark.parametrize("cursor", ["invalid", "a.b.c", "payload.signature-tampered"])

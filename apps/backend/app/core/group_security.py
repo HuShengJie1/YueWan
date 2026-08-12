@@ -22,7 +22,13 @@ from app.core.security import JWT_ALGORITHM, MINIMUM_SECRET_BYTES
 
 GROUP_INVITE_TOKEN_TYPE = "group_invite"
 GROUP_INVITE_TTL = timedelta(days=7)
-CursorKind = Literal["group_list", "group_member_list", "hangout_list"]
+CursorKind = Literal[
+    "group_list",
+    "group_member_list",
+    "hangout_list",
+    "proposal_list",
+    "time_option_list",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +47,18 @@ class PageCursor:
 class HangoutPageCursor:
     created_at: datetime
     hangout_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class ProposalPageCursor:
+    created_at: datetime
+    proposal_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class TimeOptionPageCursor:
+    starts_at: datetime
+    time_option_id: UUID
 
 
 class GroupInviteTokenService:
@@ -130,7 +148,7 @@ class SignedCursorCodec:
 
     def encode(
         self,
-        cursor: PageCursor | HangoutPageCursor,
+        cursor: PageCursor | HangoutPageCursor | ProposalPageCursor | TimeOptionPageCursor,
         *,
         kind: CursorKind,
         scope: str,
@@ -141,6 +159,20 @@ class SignedCursorCodec:
             keyset = {
                 "created_at": cursor.created_at.astimezone(UTC).isoformat(timespec="microseconds"),
                 "hangout_id": str(cursor.hangout_id),
+            }
+        elif kind == "proposal_list":
+            if not isinstance(cursor, ProposalPageCursor):
+                raise TypeError("proposal_list requires ProposalPageCursor")
+            keyset = {
+                "created_at": cursor.created_at.astimezone(UTC).isoformat(timespec="microseconds"),
+                "proposal_id": str(cursor.proposal_id),
+            }
+        elif kind == "time_option_list":
+            if not isinstance(cursor, TimeOptionPageCursor):
+                raise TypeError("time_option_list requires TimeOptionPageCursor")
+            keyset = {
+                "starts_at": cursor.starts_at.astimezone(UTC).isoformat(timespec="microseconds"),
+                "time_option_id": str(cursor.time_option_id),
             }
         else:
             if not isinstance(cursor, PageCursor):
@@ -162,7 +194,7 @@ class SignedCursorCodec:
         *,
         kind: CursorKind,
         scope: str,
-    ) -> PageCursor | HangoutPageCursor:
+    ) -> PageCursor | HangoutPageCursor | ProposalPageCursor | TimeOptionPageCursor:
         try:
             if len(value) > 2048:
                 raise ValueError("cursor is too long")
@@ -180,17 +212,33 @@ class SignedCursorCodec:
             expected_keys = {"v", "kind", "scope"}
             if kind == "hangout_list":
                 expected_keys.update(("created_at", "hangout_id"))
+            elif kind == "proposal_list":
+                expected_keys.update(("created_at", "proposal_id"))
+            elif kind == "time_option_list":
+                expected_keys.update(("starts_at", "time_option_id"))
             else:
                 expected_keys.update(("joined_at", "membership_id"))
             if not isinstance(payload, dict) or set(payload) != expected_keys:
                 raise ValueError("invalid cursor payload")
             if payload["v"] != 1 or payload["kind"] != kind or payload["scope"] != scope:
                 raise ValueError("cursor scope mismatch")
-            timestamp_field = "created_at" if kind == "hangout_list" else "joined_at"
+            if kind in ("hangout_list", "proposal_list"):
+                timestamp_field = "created_at"
+            elif kind == "time_option_list":
+                timestamp_field = "starts_at"
+            else:
+                timestamp_field = "joined_at"
             timestamp = datetime.fromisoformat(payload[timestamp_field])
             if timestamp.tzinfo is None or timestamp.utcoffset() is None:
                 raise ValueError("cursor timestamp must be timezone-aware")
-            item_id_field = "hangout_id" if kind == "hangout_list" else "membership_id"
+            if kind == "hangout_list":
+                item_id_field = "hangout_id"
+            elif kind == "proposal_list":
+                item_id_field = "proposal_id"
+            elif kind == "time_option_list":
+                item_id_field = "time_option_id"
+            else:
+                item_id_field = "membership_id"
             item_id = UUID(payload[item_id_field])
         except (
             AttributeError,
@@ -205,6 +253,16 @@ class SignedCursorCodec:
             return HangoutPageCursor(
                 created_at=timestamp.astimezone(UTC),
                 hangout_id=item_id,
+            )
+        if kind == "proposal_list":
+            return ProposalPageCursor(
+                created_at=timestamp.astimezone(UTC),
+                proposal_id=item_id,
+            )
+        if kind == "time_option_list":
+            return TimeOptionPageCursor(
+                starts_at=timestamp.astimezone(UTC),
+                time_option_id=item_id,
             )
         return PageCursor(joined_at=timestamp.astimezone(UTC), membership_id=item_id)
 

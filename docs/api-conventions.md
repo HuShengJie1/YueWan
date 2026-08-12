@@ -370,7 +370,7 @@
 - Repository 在写入前锁定当前 active 成员关系和目标 Hangout；校验、更新、提交处于同一事务，任一步失败都会回滚。
 - 成功返回 `200 OK` 和更新后的约玩局响应。
 
-本阶段不提供候选活动、候选时间、投票、开始投票、取消、确认活动、状态流转或 Event 创建接口。
+本阶段不提供投票、开始投票、取消、确认活动、状态流转或 Event 创建接口。
 
 ### 约玩局错误码
 
@@ -383,6 +383,140 @@
 | 422  | `42213`   | 分页 cursor 无效、被篡改、用途或群组作用域不匹配 |
 
 字段格式、UUID 路径参数、未声明请求字段或 `limit` 校验失败继续使用通用 `422 / 40001`。
+
+## 候选活动 Proposal 契约
+
+以下接口均需要 Bearer Token：
+
+- `POST /api/v1/groups/{group_id}/hangouts/{hangout_id}/proposals`
+- `GET /api/v1/groups/{group_id}/hangouts/{hangout_id}/proposals?cursor=&limit=`
+- `PUT /api/v1/groups/{group_id}/hangouts/{hangout_id}/proposals/{proposal_id}`
+- `DELETE /api/v1/groups/{group_id}/hangouts/{hangout_id}/proposals/{proposal_id}`
+
+创建和完整更新使用相同的可写字段：
+
+```json
+{
+  "title": "桌游店",
+  "description": "可以提前订包间",
+  "location_text": "徐汇区某商场 5 楼",
+  "external_platform": "official",
+  "external_url": "https://example.com/venues/42",
+  "external_data": {
+    "source_id": "42",
+    "category": "board_game"
+  }
+}
+```
+
+- `title` 去除首尾空白后长度为 1–80。
+- `description`、`location_text`、`external_platform` 均可为 `null`；去除首尾空白后最大长度分别为 500、200、50，空白转换为 `null`。
+- `external_url` 可为 `null`，去除首尾空白后最长 2048；存在时必须是带主机名且不内嵌用户名或密码的 HTTP/HTTPS URL。
+- `external_data` 可为 JSON object 或 `null`。任何层级都不得包含 token、password、secret、authorization、cookie、session key、API key 或 credential 等认证/秘密字段。
+- `hangout_id`、`submitted_by_user_id`、ID、时间戳和 `can_manage` 由服务端决定；请求携带这些字段或其他未声明字段返回通用 `422 / 40001`。
+
+成功创建返回 `201 Created` 和 `Location`；成功更新返回 `200 OK`。两者 `data` 示例：
+
+```json
+{
+  "id": "5b017070-0501-4b76-99dc-3aa57bc395ca",
+  "hangout_id": "62429e4e-24cf-495c-b223-f63891147cf7",
+  "submitted_by_user_id": "28a03322-3016-4142-b762-44ce83c5f1c1",
+  "title": "桌游店",
+  "description": "可以提前订包间",
+  "location_text": "徐汇区某商场 5 楼",
+  "external_platform": "official",
+  "external_url": "https://example.com/venues/42",
+  "external_data": {
+    "source_id": "42",
+    "category": "board_game"
+  },
+  "created_at": "2026-08-11T03:00:00Z",
+  "updated_at": "2026-08-11T03:00:00Z",
+  "can_manage": true
+}
+```
+
+权限和状态规则：
+
+- 只有群组 active 成员可读取或创建；群组不存在、left 或非成员统一返回 `40410`。
+- Hangout 必须属于路径 Group，否则返回 `40420`；Proposal 必须属于路径 Hangout，否则返回 `40430`。
+- 只有 Proposal 提交者、Hangout 创建者或群主可更新、删除；其他 active 成员返回 `40330`。
+- 只有 `Hangout.status=draft` 可以创建、更新或删除；其他状态明确返回 `40930`。
+- `can_manage` 表示当前状态下当前用户能否管理，用于前端展示；非 `draft` 时固定为 `false`。写请求仍由服务端重新锁定资源并鉴权，不能信任该字段。
+- 写入按 active 成员关系、Hangout、目标 Proposal 的顺序加锁，在同一事务内校验并提交；创建没有既存目标资源可锁。失败会 rollback，成功删除为硬删除并返回无响应体的 `204 No Content`。
+
+Proposal 列表按 `created_at DESC, id DESC` 稳定分页，`limit` 默认 20、范围 1–100。cursor 是签名不透明值，同时绑定 `proposal_list` 用途、`group_id` 和 `hangout_id`；不能跨列表、Group 或 Hangout 复用，无效值返回 `42213`。响应使用标准 CursorPage envelope，列表权限上下文通过固定数量查询取得，不逐候选查询。
+
+### Proposal 错误码
+
+| HTTP | 业务 code | 语义                                                   |
+| ---- | --------- | ------------------------------------------------------ |
+| 403  | `40330`   | 当前 active 成员不能管理该 Proposal                    |
+| 404  | `40410`   | 群组不存在或当前用户不是 active 成员                   |
+| 404  | `40420`   | Hangout 不存在、与路径 Group 不匹配或不可见            |
+| 404  | `40430`   | Proposal 不存在或与路径 Hangout 不匹配                 |
+| 409  | `40930`   | Hangout 状态不允许新增、更新或删除 Proposal            |
+| 422  | `42213`   | 分页 cursor 无效、被篡改、用途或 Group/Hangout 不匹配  |
+
+字段校验、UUID 路径参数、未声明字段或 `limit` 校验失败继续使用通用 `422 / 40001`。
+
+## 候选时间 TimeOption 契约
+
+以下接口均需要 Bearer Token：
+
+- `POST /api/v1/groups/{group_id}/hangouts/{hangout_id}/time-options`
+- `GET /api/v1/groups/{group_id}/hangouts/{hangout_id}/time-options?cursor=&limit=`
+- `PUT /api/v1/groups/{group_id}/hangouts/{hangout_id}/time-options/{time_option_id}`
+- `DELETE /api/v1/groups/{group_id}/hangouts/{hangout_id}/time-options/{time_option_id}`
+
+创建和完整更新请求：
+
+```json
+{
+  "starts_at": "2026-08-15T12:00:00Z",
+  "ends_at": "2026-08-15T14:00:00Z",
+  "display_label": "周六晚上"
+}
+```
+
+- `starts_at` 必填，必须带时区，并在请求和事务写入校验时均晚于当前时间；写入前转换为 UTC。
+- `ends_at` 可为 `null`；存在时必须带时区、转换为 UTC 且严格晚于 `starts_at`。
+- `display_label` 可为 `null`，去除首尾空白后最长 80；空字符串或纯空白转换为 `null`。
+- `hangout_id`、`created_by_user_id`、ID、时间戳和 `can_manage` 由服务端决定；请求携带这些字段或其他未声明字段返回通用 `422 / 40001`。
+
+成功创建返回 `201 Created` 和 `Location`；成功更新返回 `200 OK`。两者 `data` 示例：
+
+```json
+{
+  "id": "5b017070-0501-4b76-99dc-3aa57bc395ca",
+  "hangout_id": "62429e4e-24cf-495c-b223-f63891147cf7",
+  "created_by_user_id": "28a03322-3016-4142-b762-44ce83c5f1c1",
+  "starts_at": "2026-08-15T12:00:00Z",
+  "ends_at": "2026-08-15T14:00:00Z",
+  "display_label": "周六晚上",
+  "created_at": "2026-08-11T03:00:00Z",
+  "updated_at": "2026-08-11T03:00:00Z",
+  "can_manage": true
+}
+```
+
+权限、资源隐藏、状态限制、加锁顺序、事务回滚、硬删除和 `can_manage` 语义与 Proposal 相同；管理者为 TimeOption 创建者、Hangout 创建者或群主。非管理者返回 `40340`，非 `draft` 写入返回 `40940`。
+
+TimeOption 列表按 `starts_at ASC, id ASC` 稳定分页，`limit` 默认 20、范围 1–100。cursor 同时绑定 `time_option_list` 用途、`group_id` 和 `hangout_id`，不能与 Proposal 或其他列表互换；无效值返回 `42213`。响应使用标准 CursorPage envelope。
+
+### TimeOption 错误码
+
+| HTTP | 业务 code | 语义                                                    |
+| ---- | --------- | ------------------------------------------------------- |
+| 403  | `40340`   | 当前 active 成员不能管理该 TimeOption                   |
+| 404  | `40410`   | 群组不存在或当前用户不是 active 成员                    |
+| 404  | `40420`   | Hangout 不存在、与路径 Group 不匹配或不可见             |
+| 404  | `40440`   | TimeOption 不存在或与路径 Hangout 不匹配                |
+| 409  | `40940`   | Hangout 状态不允许新增、更新或删除 TimeOption           |
+| 422  | `42213`   | 分页 cursor 无效、被篡改、用途或 Group/Hangout 不匹配   |
+
+时间、字段格式、UUID 路径参数、未声明字段或 `limit` 校验失败继续使用通用 `422 / 40001`。
 
 ### 头像上传错误码
 

@@ -10,7 +10,9 @@
     "pages/groups/join/index",
     "pages/hangouts/list/index",
     "pages/hangouts/form/index",
-    "pages/hangouts/detail/index"
+    "pages/hangouts/detail/index",
+    "pages/proposals/form/index",
+    "pages/time-options/form/index"
   ],
   "sitemapLocation": "sitemap.json",
   "window": {

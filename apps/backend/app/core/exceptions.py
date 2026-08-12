@@ -210,3 +210,66 @@ class HangoutStateConflictError(AppError):
             code=40920,
             message="Hangout state does not allow this operation",
         )
+
+
+class ProposalManageForbiddenError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.FORBIDDEN,
+            code=40330,
+            message="Current member cannot manage this proposal",
+        )
+
+
+class ProposalNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.NOT_FOUND,
+            code=40430,
+            message="Proposal not found",
+        )
+
+
+class ProposalStateConflictError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40930,
+            message="Hangout state does not allow proposal changes",
+        )
+
+
+class TimeOptionManageForbiddenError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.FORBIDDEN,
+            code=40340,
+            message="Current member cannot manage this time option",
+        )
+
+
+class TimeOptionNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.NOT_FOUND,
+            code=40440,
+            message="Time option not found",
+        )
+
+
+class TimeOptionStateConflictError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40940,
+            message="Hangout state does not allow time option changes",
+        )
+
+
+class InvalidTimeOptionError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            code=40001,
+            message="Invalid request",
+        )

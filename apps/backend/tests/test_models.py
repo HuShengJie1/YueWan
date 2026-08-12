@@ -112,3 +112,17 @@ def test_hangout_cross_status_list_index_matches_keyset_order() -> None:
     index_columns = {tuple(column.name for column in index.columns) for index in hangouts.indexes}
 
     assert ("group_id", "created_at", "id") in index_columns
+
+
+def test_candidate_list_indexes_match_keyset_orders() -> None:
+    proposals = Base.metadata.tables["proposals"]
+    proposal_indexes = {
+        tuple(column.name for column in index.columns) for index in proposals.indexes
+    }
+    time_options = Base.metadata.tables["time_options"]
+    time_option_indexes = {
+        tuple(column.name for column in index.columns) for index in time_options.indexes
+    }
+
+    assert ("hangout_id", "created_at", "id") in proposal_indexes
+    assert ("hangout_id", "starts_at", "id") in time_option_indexes

@@ -1,0 +1,155 @@
+<view class="page form-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading
+      theme="circular"
+      size="44rpx"
+      text="{{ mode === 'edit' ? '正在读取候选活动' : '正在准备表单' }}"
+    />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">{{ errorTitle }}</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button wx:if="{{ canRetry }}" theme="primary" shape="round" bindtap="onRetry">
+      重新加载
+    </t-button>
+    <t-button wx:else variant="outline" shape="round" bindtap="onBack">安全返回</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="page-header">
+      <text class="eyebrow">{{ mode === 'edit' ? 'EDIT PROPOSAL' : 'NEW PROPOSAL' }}</text>
+      <text class="page-title">{{ mode === 'edit' ? '编辑候选活动' : '添加候选活动' }}</text>
+      <text class="page-description">把活动、地点和可信的外部链接写清楚，方便朋友一起比较。</text>
+    </view>
+
+    <view class="form-card">
+      <view class="form-field">
+        <view class="field-heading">
+          <text class="field-label">标题</text>
+          <text class="required-mark">必填</text>
+        </view>
+        <view class="input-shell {{ titleError ? 'input-shell-error' : '' }}">
+          <input
+            class="text-input"
+            value="{{ title }}"
+            maxlength="80"
+            disabled="{{ isSubmitting }}"
+            placeholder="例如：去桌游店玩一晚"
+            placeholder-class="input-placeholder"
+            bindinput="onTitleInput"
+          />
+          <text class="input-count">{{ titleCount }}/80</text>
+        </view>
+        <text wx:if="{{ titleError }}" class="field-error">{{ titleError }}</text>
+      </view>
+
+      <view class="form-field">
+        <view class="field-heading">
+          <text class="field-label">地点</text>
+          <text class="optional-mark">选填</text>
+        </view>
+        <view class="input-shell {{ locationError ? 'input-shell-error' : '' }}">
+          <input
+            class="text-input"
+            value="{{ locationText }}"
+            maxlength="200"
+            disabled="{{ isSubmitting }}"
+            placeholder="例如：徐汇区某商场 5 楼"
+            placeholder-class="input-placeholder"
+            bindinput="onLocationInput"
+          />
+          <text class="input-count">{{ locationCount }}/200</text>
+        </view>
+        <text wx:if="{{ locationError }}" class="field-error">{{ locationError }}</text>
+      </view>
+
+      <view class="form-field">
+        <view class="field-heading">
+          <text class="field-label">描述</text>
+          <text class="optional-mark">选填</text>
+        </view>
+        <view class="textarea-shell {{ descriptionError ? 'input-shell-error' : '' }}">
+          <textarea
+            class="description-input"
+            value="{{ description }}"
+            maxlength="500"
+            auto-height
+            disabled="{{ isSubmitting }}"
+            placeholder="补充活动亮点、预算或预订提醒"
+            placeholder-class="input-placeholder"
+            bindinput="onDescriptionInput"
+          />
+          <text class="textarea-count">{{ descriptionCount }}/500</text>
+        </view>
+        <text wx:if="{{ descriptionError }}" class="field-error">{{ descriptionError }}</text>
+      </view>
+
+      <view class="form-divider"></view>
+
+      <view class="form-field">
+        <view class="field-heading">
+          <view>
+            <text class="field-label">外部链接</text>
+            <text class="field-hint">仅支持不含账号密码的 HTTP/HTTPS 链接</text>
+          </view>
+          <text class="optional-mark">选填</text>
+        </view>
+        <view class="url-shell {{ urlError ? 'input-shell-error' : '' }}">
+          <textarea
+            class="url-input"
+            value="{{ externalUrl }}"
+            maxlength="2048"
+            auto-height
+            disabled="{{ isSubmitting }}"
+            placeholder="https://example.com/venues/42"
+            placeholder-class="input-placeholder"
+            bindinput="onUrlInput"
+          />
+          <text class="textarea-count">{{ urlCount }}/2048</text>
+        </view>
+        <text wx:if="{{ urlError }}" class="field-error">{{ urlError }}</text>
+      </view>
+
+      <view class="form-field">
+        <view class="field-heading">
+          <text class="field-label">平台名称</text>
+          <text class="optional-mark">选填</text>
+        </view>
+        <view class="input-shell {{ platformError ? 'input-shell-error' : '' }}">
+          <input
+            class="text-input"
+            value="{{ externalPlatform }}"
+            maxlength="50"
+            disabled="{{ isSubmitting }}"
+            placeholder="例如：official"
+            placeholder-class="input-placeholder"
+            bindinput="onPlatformInput"
+          />
+          <text class="input-count">{{ platformCount }}/50</text>
+        </view>
+        <text wx:if="{{ platformError }}" class="field-error">{{ platformError }}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{ errorMessage }}" class="error-banner">
+      <text class="error-dot">!</text>
+      <text>{{ errorMessage }}</text>
+    </view>
+
+    <view class="submit-action">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isSubmitting }}"
+        disabled="{{ isSubmitting || !formCanSubmit }}"
+        bindtap="onSubmit"
+      >
+        {{ isSubmitting ? '正在保存…' : mode === 'edit' ? '保存修改' : '添加候选活动' }}
+      </t-button>
+    </view>
+  </block>
+</view>

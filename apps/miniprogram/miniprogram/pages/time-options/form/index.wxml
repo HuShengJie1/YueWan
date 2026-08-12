@@ -1,0 +1,157 @@
+<view class="page form-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading
+      theme="circular"
+      size="44rpx"
+      text="{{ mode === 'edit' ? '正在读取候选时间' : '正在准备表单' }}"
+    />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">{{ errorTitle }}</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button wx:if="{{ canRetry }}" theme="primary" shape="round" bindtap="onRetry">
+      重新加载
+    </t-button>
+    <t-button wx:else variant="outline" shape="round" bindtap="onBack">安全返回</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="page-header">
+      <text class="eyebrow">{{ mode === 'edit' ? 'EDIT TIME' : 'NEW TIME' }}</text>
+      <text class="page-title">{{ mode === 'edit' ? '编辑候选时间' : '添加候选时间' }}</text>
+      <text class="page-description">按本地时间选择，保存时会自动转换为带时区的 UTC 时间。</text>
+    </view>
+
+    <view class="timezone-note">
+      <view class="timezone-icon">时</view>
+      <text>详情页也会按每位用户设备的本地时区显示。</text>
+    </view>
+
+    <view class="form-card">
+      <view class="form-field">
+        <view class="field-heading">
+          <text class="field-label">日期</text>
+          <text class="required-mark">必填</text>
+        </view>
+        <picker
+          mode="date"
+          value="{{ dateValue }}"
+          start="{{ minimumDate }}"
+          disabled="{{ isSubmitting }}"
+          bindchange="onDateChange"
+        >
+          <view class="picker-shell {{ timeError ? 'input-shell-error' : '' }}">
+            <text class="picker-caption">本地日期</text>
+            <text class="picker-value">{{ dateValue }}</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="time-pickers">
+        <view class="form-field time-field">
+          <view class="field-heading">
+            <text class="field-label">开始时间</text>
+            <text class="required-mark">必填</text>
+          </view>
+          <picker
+            mode="time"
+            value="{{ startTimeValue }}"
+            disabled="{{ isSubmitting }}"
+            bindchange="onStartTimeChange"
+          >
+            <view class="picker-shell compact-picker {{ timeError ? 'input-shell-error' : '' }}">
+              <text class="picker-caption">开始</text>
+              <text class="picker-value">{{ startTimeValue }}</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-field time-field">
+          <view class="field-heading">
+            <text class="field-label">结束时间</text>
+            <text wx:if="{{ endTimeValue }}" class="clear-link" bindtap="onClearEndTime">清除</text>
+            <text wx:else class="optional-mark">选填</text>
+          </view>
+          <picker
+            mode="time"
+            value="{{ endTimeValue || defaultEndTimeValue }}"
+            disabled="{{ isSubmitting }}"
+            bindchange="onEndTimeChange"
+          >
+            <view class="picker-shell compact-picker {{ timeError ? 'input-shell-error' : '' }}">
+              <text class="picker-caption">结束</text>
+              <text class="picker-value {{ endTimeValue ? '' : 'picker-placeholder' }}">
+                {{ endTimeValue || '选择时间' }}
+              </text>
+            </view>
+          </picker>
+        </view>
+      </view>
+      <view wx:if="{{ endTimeValue }}" class="end-date-picker">
+        <view class="field-heading">
+          <text class="field-label">结束日期</text>
+          <text class="field-hint">跨天时请选择下一天</text>
+        </view>
+        <picker
+          mode="date"
+          value="{{ endDateValue }}"
+          start="{{ dateValue }}"
+          disabled="{{ isSubmitting }}"
+          bindchange="onEndDateChange"
+        >
+          <view class="picker-shell {{ timeError ? 'input-shell-error' : '' }}">
+            <text class="picker-caption">本地结束日期</text>
+            <text class="picker-value">{{ endDateValue }}</text>
+          </view>
+        </picker>
+      </view>
+      <text wx:if="{{ timeError }}" class="field-error">{{ timeError }}</text>
+
+      <view class="form-field label-field">
+        <view class="field-heading">
+          <view>
+            <text class="field-label">展示标签</text>
+            <text class="field-hint">例如“周六晚上”或“午饭后”</text>
+          </view>
+          <text class="optional-mark">选填</text>
+        </view>
+        <view class="input-shell {{ displayLabelError ? 'input-shell-error' : '' }}">
+          <input
+            class="text-input"
+            value="{{ displayLabel }}"
+            maxlength="80"
+            disabled="{{ isSubmitting }}"
+            placeholder="给这个时间一个容易辨认的名字"
+            placeholder-class="input-placeholder"
+            bindinput="onDisplayLabelInput"
+          />
+          <text class="input-count">{{ displayLabelCount }}/80</text>
+        </view>
+        <text wx:if="{{ displayLabelError }}" class="field-error">
+          {{ displayLabelError }}
+        </text>
+      </view>
+    </view>
+
+    <view wx:if="{{ errorMessage }}" class="error-banner">
+      <text class="error-dot">!</text>
+      <text>{{ errorMessage }}</text>
+    </view>
+
+    <view class="submit-action">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isSubmitting }}"
+        disabled="{{ isSubmitting || !formCanSubmit }}"
+        bindtap="onSubmit"
+      >
+        {{ isSubmitting ? '正在保存…' : mode === 'edit' ? '保存修改' : '添加候选时间' }}
+      </t-button>
+    </view>
+  </block>
+</view>

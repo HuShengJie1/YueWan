@@ -90,4 +90,4 @@ wx.chooseAvatar
 
 ## 第三方链接规划（未实现）
 
-Proposal 将使用通用的 `external_platform`、`external_url`、`external_data` 表达来源。平台识别、分享文本解析、metadata 获取和小程序跳转能力应进入 `app/integrations/` 下的平台适配器。只有确认存在且获准使用的公开 API 才能接入；不编写爬虫，不逆向私有 API。
+Proposal 使用通用的 `external_platform`、`external_url`、`external_data` 表达来源。平台识别、分享文本解析、metadata 获取和小程序跳转能力应进入 `app/integrations/` 下的平台适配器。只有确认存在且获准使用的公开 API 才能接入；不编写爬虫，不逆向私有 API。

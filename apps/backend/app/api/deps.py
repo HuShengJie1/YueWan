@@ -18,11 +18,15 @@ from app.integrations.wechat.client import WeChatClient
 from app.models.user import User
 from app.repositories.group import GroupRepository
 from app.repositories.hangout import HangoutRepository
+from app.repositories.proposal import ProposalRepository
+from app.repositories.time_option import TimeOptionRepository
 from app.repositories.user import UserRepository
 from app.services.auth import AuthService
 from app.services.avatar import AvatarImageProcessor, AvatarService
 from app.services.group import GroupService
 from app.services.hangout import HangoutService
+from app.services.proposal import ProposalService
+from app.services.time_option import TimeOptionService
 from app.services.user import UserService
 
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
@@ -108,6 +112,42 @@ def get_hangout_service(
     try:
         return HangoutService(
             repository=HangoutRepository(session),
+            cursors=SignedCursorCodec(secret=secret),
+        )
+    except ValueError as exc:
+        raise AuthNotConfiguredError from exc
+
+
+def get_proposal_service(
+    session: DbSession,
+    settings: SettingsDependency,
+) -> ProposalService:
+    if settings.jwt_secret is None:
+        raise AuthNotConfiguredError
+    secret = settings.jwt_secret.get_secret_value()
+    if not secret:
+        raise AuthNotConfiguredError
+    try:
+        return ProposalService(
+            repository=ProposalRepository(session),
+            cursors=SignedCursorCodec(secret=secret),
+        )
+    except ValueError as exc:
+        raise AuthNotConfiguredError from exc
+
+
+def get_time_option_service(
+    session: DbSession,
+    settings: SettingsDependency,
+) -> TimeOptionService:
+    if settings.jwt_secret is None:
+        raise AuthNotConfiguredError
+    secret = settings.jwt_secret.get_secret_value()
+    if not secret:
+        raise AuthNotConfiguredError
+    try:
+        return TimeOptionService(
+            repository=TimeOptionRepository(session),
             cursors=SignedCursorCodec(secret=secret),
         )
     except ValueError as exc:
