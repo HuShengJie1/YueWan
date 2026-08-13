@@ -11,6 +11,7 @@
     "pages/hangouts/list/index",
     "pages/hangouts/form/index",
     "pages/hangouts/detail/index",
+    "pages/events/confirm/index",
     "pages/proposals/form/index",
     "pages/time-options/form/index"
   ],

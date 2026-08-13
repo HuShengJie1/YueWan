@@ -139,3 +139,28 @@ async def update_hangout(
         voting_deadline=payload.voting_deadline,
     )
     return ApiResponse(data=HangoutRead.from_hangout(hangout))
+
+
+@router.put(
+    "/{hangout_id}/voting",
+    response_model=ApiResponse[HangoutRead],
+    responses={
+        401: {"model": ApiErrorResponse},
+        403: {"model": ApiErrorResponse},
+        404: {"model": ApiErrorResponse},
+        409: {"model": ApiErrorResponse},
+        422: {"model": ApiErrorResponse},
+    },
+)
+async def start_voting(
+    group_id: UUID,
+    hangout_id: UUID,
+    current_user: CurrentUser,
+    service: HangoutServiceDependency,
+) -> ApiResponse[HangoutRead]:
+    hangout = await service.start_voting(
+        current_user,
+        group_id=group_id,
+        hangout_id=hangout_id,
+    )
+    return ApiResponse(data=HangoutRead.from_hangout(hangout))

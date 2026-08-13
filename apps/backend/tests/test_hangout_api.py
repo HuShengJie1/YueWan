@@ -9,7 +9,11 @@ from app.core.exceptions import (
     GroupNotFoundError,
     HangoutEditForbiddenError,
     HangoutNotFoundError,
+    HangoutProposalRequiredError,
     HangoutStateConflictError,
+    HangoutTimeOptionRequiredError,
+    HangoutVotingDeadlineElapsedError,
+    HangoutVotingForbiddenError,
     InvalidGroupCursorError,
 )
 from app.main import app
@@ -305,10 +309,69 @@ def test_hangout_routes_document_bearer_security_and_errors() -> None:
     schema = app.openapi()
     collection = schema["paths"]["/api/v1/groups/{group_id}/hangouts"]
     detail = schema["paths"]["/api/v1/groups/{group_id}/hangouts/{hangout_id}"]
+    voting = schema["paths"]["/api/v1/groups/{group_id}/hangouts/{hangout_id}/voting"]
 
-    for operation in (collection["post"], collection["get"], detail["get"], detail["put"]):
+    for operation in (
+        collection["post"],
+        collection["get"],
+        detail["get"],
+        detail["put"],
+        voting["put"],
+    ):
         assert operation["security"] == [{"BearerAuth": []}]
         assert "401" in operation["responses"]
 
     assert "201" in collection["post"]["responses"]
     assert {"403", "404", "409", "422"} <= set(detail["put"]["responses"])
+    assert {"403", "404", "409", "422"} <= set(voting["put"]["responses"])
+
+
+async def test_start_voting_uses_empty_put_and_returns_voting_hangout() -> None:
+    user = make_user()
+    group_id = uuid4()
+    hangout = make_hangout(group_id=group_id, creator_id=user.id)
+
+    class FakeService:
+        async def start_voting(self, current_user: User, **arguments: object) -> Hangout:
+            assert current_user is user
+            assert arguments == {"group_id": group_id, "hangout_id": hangout.id}
+            hangout.status = HangoutStatus.VOTING
+            return hangout
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_hangout_service] = FakeService
+
+    response = await request(
+        "PUT",
+        f"/api/v1/groups/{group_id}/hangouts/{hangout.id}/voting",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "voting"
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (HangoutVotingForbiddenError(), 40321),
+        (HangoutProposalRequiredError(), 40921),
+        (HangoutTimeOptionRequiredError(), 40922),
+        (HangoutVotingDeadlineElapsedError(), 40923),
+    ],
+)
+async def test_start_voting_errors_use_safe_envelope(error: Exception, code: int) -> None:
+    class FakeService:
+        async def start_voting(self, *_args: object, **_kwargs: object) -> object:
+            raise error
+
+    app.dependency_overrides[get_current_user] = make_user
+    app.dependency_overrides[get_hangout_service] = FakeService
+
+    response = await request(
+        "PUT",
+        f"/api/v1/groups/{uuid4()}/hangouts/{uuid4()}/voting",
+    )
+
+    assert response.status_code in {403, 409}
+    assert response.json()["code"] == code
+    assert "sql" not in response.text.lower()

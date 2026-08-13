@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast
@@ -9,7 +10,11 @@ from app.core.exceptions import (
     GroupNotFoundError,
     HangoutEditForbiddenError,
     HangoutNotFoundError,
+    HangoutProposalRequiredError,
     HangoutStateConflictError,
+    HangoutTimeOptionRequiredError,
+    HangoutVotingDeadlineElapsedError,
+    HangoutVotingForbiddenError,
 )
 from app.core.group_security import HangoutPageCursor, SignedCursorCodec
 from app.models.enums import GroupMemberRole, HangoutStatus
@@ -28,9 +33,16 @@ class HangoutPage:
 class HangoutService:
     """Apply hangout membership/editing rules and own write transactions."""
 
-    def __init__(self, *, repository: HangoutRepository, cursors: SignedCursorCodec) -> None:
+    def __init__(
+        self,
+        *,
+        repository: HangoutRepository,
+        cursors: SignedCursorCodec,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         self._hangouts = repository
         self._cursors = cursors
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     async def create_hangout(
         self,
@@ -159,6 +171,51 @@ class HangoutService:
             await self._hangouts.rollback()
             raise
         return updated
+
+    async def start_voting(
+        self,
+        current_user: User,
+        *,
+        group_id: UUID,
+        hangout_id: UUID,
+    ) -> Hangout:
+        try:
+            membership = await self._hangouts.get_active_membership_for_update(
+                group_id=group_id,
+                user_id=current_user.id,
+            )
+            if membership is None:
+                raise GroupNotFoundError
+            hangout = await self._hangouts.get_in_group_for_update(
+                group_id=group_id,
+                hangout_id=hangout_id,
+            )
+            if hangout is None:
+                raise HangoutNotFoundError
+            if (
+                hangout.created_by_user_id != current_user.id
+                and membership.role != GroupMemberRole.OWNER
+            ):
+                raise HangoutVotingForbiddenError
+            if hangout.status != HangoutStatus.DRAFT:
+                raise HangoutStateConflictError
+            if hangout.voting_deadline is not None and (
+                hangout.voting_deadline.astimezone(UTC) <= self._clock().astimezone(UTC)
+            ):
+                raise HangoutVotingDeadlineElapsedError
+            if await self._hangouts.count_proposals(hangout_id=hangout.id) < 1:
+                raise HangoutProposalRequiredError
+            if await self._hangouts.count_time_options(hangout_id=hangout.id) < 1:
+                raise HangoutTimeOptionRequiredError
+            voting_hangout = await self._hangouts.start_voting(hangout)
+            await self._hangouts.commit()
+        except IntegrityError as exc:
+            await self._hangouts.rollback()
+            raise HangoutStateConflictError from exc
+        except Exception:
+            await self._hangouts.rollback()
+            raise
+        return voting_hangout
 
     async def _require_active_membership(self, current_user: User, *, group_id: UUID) -> None:
         membership = await self._hangouts.get_active_membership(

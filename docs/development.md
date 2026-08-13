@@ -118,10 +118,12 @@ RUN_DATABASE_TESTS=1 uv run pytest \
   tests/test_user_repository_integration.py \
   tests/test_group_repository_integration.py \
   tests/test_hangout_repository_integration.py \
-  tests/test_candidate_repository_integration.py
+  tests/test_candidate_repository_integration.py \
+  tests/test_vote_repository_integration.py \
+  tests/test_event_repository_integration.py
 ```
 
-这些测试使用外层事务或显式清理，不保留测试 User、Group、GroupMember、Hangout、Proposal 或 TimeOption。
+这些测试使用外层事务或显式清理，不保留测试 User、Group、GroupMember、Hangout、Proposal、ProposalVote、TimeOption、TimeVote 或 Event。
 
 ## 小程序安装和检查
 

@@ -212,6 +212,42 @@ class HangoutStateConflictError(AppError):
         )
 
 
+class HangoutVotingForbiddenError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.FORBIDDEN,
+            code=40321,
+            message="Current member cannot start voting for this hangout",
+        )
+
+
+class HangoutProposalRequiredError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40921,
+            message="At least one proposal is required to start voting",
+        )
+
+
+class HangoutTimeOptionRequiredError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40922,
+            message="At least one time option is required to start voting",
+        )
+
+
+class HangoutVotingDeadlineElapsedError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40923,
+            message="Voting deadline has already elapsed",
+        )
+
+
 class ProposalManageForbiddenError(AppError):
     def __init__(self) -> None:
         super().__init__(
@@ -272,4 +308,58 @@ class InvalidTimeOptionError(AppError):
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             code=40001,
             message="Invalid request",
+        )
+
+
+class VoteStateConflictError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40950,
+            message="Hangout is not open for voting",
+        )
+
+
+class DuplicateTimeVoteSelectionError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            code=42250,
+            message="Time option IDs must be unique",
+        )
+
+
+class EventConfirmForbiddenError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.FORBIDDEN,
+            code=40350,
+            message="Current member cannot confirm this event",
+        )
+
+
+class EventNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.NOT_FOUND,
+            code=40450,
+            message="Event not found",
+        )
+
+
+class EventStateConflictError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40960,
+            message="Hangout state does not allow event confirmation",
+        )
+
+
+class EventSelectionConflictError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.CONFLICT,
+            code=40961,
+            message="Event was already confirmed with a different selection",
         )

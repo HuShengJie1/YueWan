@@ -1,0 +1,194 @@
+<view class="page event-confirm-page">
+  <view wx:if="{{ pageStatus === 'loading' }}" class="center-state">
+    <t-loading theme="circular" size="44rpx" text="正在读取投票结果" />
+  </view>
+
+  <view wx:elif="{{ pageStatus === 'error' }}" class="center-state">
+    <view class="state-icon">!</view>
+    <text class="state-title">{{ errorTitle }}</text>
+    <text class="state-description">{{ errorMessage }}</text>
+    <t-button wx:if="{{ canRetry }}" theme="primary" shape="round" bindtap="onRetry">
+      重新加载
+    </t-button>
+    <t-button wx:else variant="outline" shape="round" bindtap="onBack">安全返回</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="confirm-hero">
+      <text class="eyebrow">FINAL DECISION</text>
+      <text class="page-title">确认正式活动</text>
+      <text class="page-description">{{ hangout.title }} · {{ group.name }}</text>
+      <text class="page-hint">票数只作为参考，请分别手动选择活动与时间。</text>
+    </view>
+
+    <view wx:if="{{ isRefreshing }}" class="refreshing-row">
+      <t-loading theme="circular" size="30rpx" text="正在同步最新结果" />
+    </view>
+
+    <view wx:if="{{ refreshError }}" class="message-card error-card" bindtap="onRefreshRetry">
+      <text>{{ refreshError }}</text>
+      <text class="message-action">点击重试</text>
+    </view>
+
+    <view wx:if="{{ noticeMessage }}" class="message-card notice-card">
+      {{ noticeMessage }}
+    </view>
+
+    <view wx:if="{{ permissionMessage }}" class="message-card permission-card">
+      {{ permissionMessage }}
+    </view>
+
+    <view wx:if="{{ statusMessage }}" class="message-card status-card">
+      {{ statusMessage }}
+    </view>
+
+    <view wx:if="{{ confirmedEvent }}" class="official-event-card">
+      <view class="official-heading">
+        <view>
+          <text class="official-eyebrow">OFFICIAL EVENT</text>
+          <text class="official-title">{{ confirmedEvent.title }}</text>
+        </view>
+        <text class="confirmed-pill">已确认</text>
+      </view>
+      <view class="official-detail-row">
+        <text class="detail-label">地点</text>
+        <text class="detail-value">{{ confirmedEvent.locationText }}</text>
+      </view>
+      <view class="official-detail-row">
+        <text class="detail-label">开始</text>
+        <text class="detail-value">{{ confirmedEvent.startsAtText }}</text>
+      </view>
+      <view class="official-detail-row">
+        <text class="detail-label">结束</text>
+        <text class="detail-value">{{ confirmedEvent.endsAtText }}</text>
+      </view>
+    </view>
+
+    <block wx:else>
+      <view class="result-section">
+        <view class="section-heading">
+          <view>
+            <text class="section-step">01 · 活动</text>
+            <text class="section-title">选择一个 Proposal</text>
+          </view>
+          <text class="selection-summary">
+            {{ selectedProposal ? '已选择' : '尚未选择' }}
+          </text>
+        </view>
+
+        <view wx:if="{{ proposals.length === 0 }}" class="empty-card">
+          当前没有可确认的候选活动
+        </view>
+
+        <view wx:else class="result-list">
+          <view
+            wx:for="{{ proposals }}"
+            wx:key="id"
+            class="proposal-result-card {{ item.isSelected ? 'result-card-selected' : '' }} {{ canConfirm ? '' : 'result-card-readonly' }}"
+            data-proposal-id="{{ item.id }}"
+            bindtap="onProposalTap"
+          >
+            <view class="result-card-heading">
+              <view class="result-heading-copy">
+                <text class="result-title">{{ item.title }}</text>
+                <text class="result-location">{{ item.locationText }}</text>
+              </view>
+              <view class="radio-mark">{{ item.isSelected ? '✓' : '' }}</view>
+            </view>
+            <text class="result-description">{{ item.descriptionText }}</text>
+            <view class="vote-counts">
+              <view class="vote-count vote-like">
+                <text class="vote-label">LIKE</text>
+                <text class="vote-value">{{ item.vote_counts.LIKE }}</text>
+              </view>
+              <view class="vote-count vote-ok">
+                <text class="vote-label">OK</text>
+                <text class="vote-value">{{ item.vote_counts.OK }}</text>
+              </view>
+              <view class="vote-count vote-dislike">
+                <text class="vote-label">DISLIKE</text>
+                <text class="vote-value">{{ item.vote_counts.DISLIKE }}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="result-section time-result-section">
+        <view class="section-heading">
+          <view>
+            <text class="section-step">02 · 时间</text>
+            <text class="section-title">选择一个 TimeOption</text>
+          </view>
+          <text class="selection-summary">
+            {{ selectedTimeOption ? '已选择' : '尚未选择' }}
+          </text>
+        </view>
+
+        <view wx:if="{{ timeOptions.length === 0 }}" class="empty-card">
+          当前没有可确认的候选时间
+        </view>
+
+        <view wx:else class="result-list">
+          <view
+            wx:for="{{ timeOptions }}"
+            wx:key="id"
+            class="time-result-card {{ item.isSelected ? 'result-card-selected' : '' }} {{ canConfirm ? '' : 'result-card-readonly' }}"
+            data-time-option-id="{{ item.id }}"
+            bindtap="onTimeOptionTap"
+          >
+            <view class="result-card-heading">
+              <view class="result-heading-copy">
+                <text class="result-title">{{ item.localDateText }}</text>
+                <text class="result-location">{{ item.displayLabelText }}</text>
+              </view>
+              <view class="radio-mark">{{ item.isSelected ? '✓' : '' }}</view>
+            </view>
+            <view class="time-range">
+              <view class="time-block">
+                <text class="time-label">开始</text>
+                <text class="time-value">{{ item.startTimeText }}</text>
+              </view>
+              <view class="time-divider"></view>
+              <view class="time-block time-end">
+                <text class="time-label">结束</text>
+                <text class="time-value {{ item.ends_at ? '' : 'time-muted' }}">
+                  {{ item.endDisplayText }}
+                </text>
+              </view>
+            </view>
+            <text class="availability-count">{{ item.availability_count }} 人可用</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{ submitErrorMessage }}" class="message-card error-card submit-error">
+        {{ submitErrorMessage }}
+      </view>
+
+      <view wx:if="{{ canConfirm }}" class="submit-card">
+        <view class="selection-preview">
+          <text class="preview-label">本次选择</text>
+          <text class="preview-value">
+            {{ selectedProposal ? selectedProposal.title : '请选择活动' }}
+          </text>
+          <text class="preview-value preview-time">
+            {{ selectedTimeOption ? selectedTimeOption.confirmationText : '请选择时间' }}
+          </text>
+        </view>
+        <t-button
+          block
+          theme="primary"
+          size="large"
+          shape="round"
+          loading="{{ isSubmitting }}"
+          disabled="{{ !canSubmit || isSubmitting || isRefreshing }}"
+          bindtap="onConfirmTap"
+        >
+          {{ isSubmitting ? '正在确认…' : '确认正式活动' }}
+        </t-button>
+        <text class="submit-hint">提交前会再次展示活动、地点和时间供你核对。</text>
+      </view>
+    </block>
+  </block>
+</view>

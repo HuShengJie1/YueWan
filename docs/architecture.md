@@ -24,6 +24,14 @@ FastAPI Router → Service → Repository → SQLAlchemy async → PostgreSQL
 - `app/core/`：配置、日志等横切能力。
 - `app/integrations/`：微信、文件存储等外部能力适配器；业务层只依赖清晰的适配边界。
 
+投票用例独立收敛在 `votes` Router、`VoteService` 和 `VoteRepository`。Router 只映射 HTTP 路径与 schema；Service 负责 active 成员、Hangout 状态、截止时间、跨 Hangout 作用域和事务编排；Repository 负责 PostgreSQL upsert、时间票整体替换和批量聚合。开启投票仍属于 Hangout 用例，由 `HangoutService` 编排 `draft → voting`。
+
+候选写入与开启投票按 active GroupMember、Hangout 的固定顺序获取排他行锁，以同一 Hangout 行作为并发边界。投票写入对当前成员关系加排他锁、对 Hangout 加共享行锁：同一成员的替换操作串行化，不同成员可并发投票，同时阻止后续 Hangout 状态变更跨过未完成的写票事务。
+
+手动确认用例独立收敛在 `events` Router、`EventService` 和 `EventRepository`。投票结果只作为输入参考，Service 不计算获胜者；它校验确认者权限和 Proposal/TimeOption 的 Hangout 作用域，并从候选复制 Event 快照。Event 查询也先验证 active 成员和路径中的 Group/Hangout 作用域，不通过 Event 查询泄露资源存在性。
+
+确认写入沿用 active GroupMember、Hangout 的固定锁顺序，并对 Hangout 获取排他锁。Event 创建、`Hangout.status=confirmed` 和 `confirmed_at` 在同一数据库事务中 flush/commit；Hangout 排他锁将不同确认请求串行化，`events.hangout_id` 唯一约束继续作为数据库兜底。确认会等待已取得 Hangout 共享锁的写票事务完成；确认提交后，后续写票重新校验状态并返回冲突。相同候选的重复确认返回既有 Event，不同候选返回安全冲突。
+
 ## 小程序职责
 
 - `pages/`：页面与页面局部状态。

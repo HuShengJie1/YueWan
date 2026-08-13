@@ -370,16 +370,20 @@
 - Repository 在写入前锁定当前 active 成员关系和目标 Hangout；校验、更新、提交处于同一事务，任一步失败都会回滚。
 - 成功返回 `200 OK` 和更新后的约玩局响应。
 
-本阶段不提供投票、开始投票、取消、确认活动、状态流转或 Event 创建接口。
+本阶段已提供从 `draft` 开启 `voting`、投票和手动确认 Event 的闭环。取消及 `cancelled/finished` 状态流转仍未实现。
 
 ### 约玩局错误码
 
 | HTTP | 业务 code | 语义                                             |
 | ---- | --------- | ------------------------------------------------ |
 | 403  | `40320`   | 当前 active 成员不是约玩局创建者或群主           |
+| 403  | `40321`   | 当前 active 成员不能开启该约玩局投票             |
 | 404  | `40410`   | 群组不存在或当前用户不是 active 成员             |
 | 404  | `40420`   | 约玩局不存在、与路径群组不匹配或不可见           |
 | 409  | `40920`   | 约玩局当前状态不允许修改                         |
+| 409  | `40921`   | 约玩局没有 Proposal，不能开启投票                   |
+| 409  | `40922`   | 约玩局没有 TimeOption，不能开启投票                 |
+| 409  | `40923`   | 开启投票时 `voting_deadline` 已到期                    |
 | 422  | `42213`   | 分页 cursor 无效、被篡改、用途或群组作用域不匹配 |
 
 字段格式、UUID 路径参数、未声明请求字段或 `limit` 校验失败继续使用通用 `422 / 40001`。
@@ -517,6 +521,198 @@ TimeOption 列表按 `starts_at ASC, id ASC` 稳定分页，`limit` 默认 20、
 | 422  | `42213`   | 分页 cursor 无效、被篡改、用途或 Group/Hangout 不匹配   |
 
 时间、字段格式、UUID 路径参数、未声明字段或 `limit` 校验失败继续使用通用 `422 / 40001`。
+
+## 开启投票与投票契约
+
+以下接口均需要 Bearer Token，路径作用域固定为当前 Group 下的当前 Hangout。群组不存在或当前用户不是 active 成员统一返回 `40410`；Hangout 不存在、跨 Group 或不可见统一返回 `40420`。当前 MVP 向所有 active 成员展示实时票数。
+
+### 开启投票
+
+`PUT /api/v1/groups/{group_id}/hangouts/{hangout_id}/voting`
+
+- 请求无 body；客户端不提交 Hangout 状态、用户 ID 或票数。
+- 只有约玩局创建者或群主可以开启；其他 active 成员返回 `40321`。
+- 只能从 `draft` 开启；已是 `voting` 或其他状态返回 `40920`。
+- 开启前至少要有 1 个 Proposal 和 1 个 TimeOption，否则分别返回 `40921` 和 `40922`。
+- `voting_deadline=null` 表示没有自动截止时间；存在时必须在事务校验时仍严格晚于当前时间，否则返回 `40923`。
+- Repository 按当前 active GroupMember、Hangout 的顺序加锁。状态检查、候选计数与 `status=voting` 写入处于同一事务。Proposal/TimeOption 写入也必须先获取同一 Hangout 行锁，因此候选变更与开启投票之间不存在竞态窗口。
+- 进入 `voting` 后 Proposal 和 TimeOption 继续可读，但新增、更新和删除均按原契约返回 `40930` 或 `40940`。
+- 成功返回 `200 OK`，`data` 为更新后的约玩局响应，其 `status` 为 `voting`。
+
+### 投票摘要
+
+`GET /api/v1/groups/{group_id}/hangouts/{hangout_id}/votes`
+
+- 任何 active 群组成员可读。摘要可在 Hangout 任意状态读取；`status` 和 `voting_deadline` 告诉客户端当前是否可写票，最终可写性仍由服务端重新校验。
+- Proposal 和 TimeOption 都在服务端稳定排序：Proposal 按 `created_at DESC, id DESC`，TimeOption 按 `starts_at ASC, id ASC`。
+- 票数和当前用户选择使用每种候选一次批量聚合查询，不逐候选查询。计数以已成功写入的投票记录为准。
+
+成功响应的 `data`：
+
+```json
+{
+  "hangout_id": "5b017070-0501-4b76-99dc-3aa57bc395ca",
+  "status": "voting",
+  "voting_deadline": "2026-08-15T12:00:00Z",
+  "proposals": [
+    {
+      "id": "62429e4e-24cf-495c-b223-f63891147cf7",
+      "submitted_by_user_id": "28a03322-3016-4142-b762-44ce83c5f1c1",
+      "title": "桌游店",
+      "description": null,
+      "location_text": "徐汇区某商场 5 楼",
+      "external_platform": null,
+      "external_url": null,
+      "external_data": null,
+      "created_at": "2026-08-11T03:00:00Z",
+      "updated_at": "2026-08-11T03:00:00Z",
+      "vote_counts": {
+        "LIKE": 2,
+        "OK": 1,
+        "DISLIKE": 0
+      },
+      "current_user_vote": "LIKE"
+    }
+  ],
+  "time_options": [
+    {
+      "id": "a377ae4f-37d2-48ad-9e18-f8b61cba1f93",
+      "created_by_user_id": "28a03322-3016-4142-b762-44ce83c5f1c1",
+      "starts_at": "2026-08-16T10:00:00Z",
+      "ends_at": "2026-08-16T12:00:00Z",
+      "display_label": "周日晚上",
+      "created_at": "2026-08-11T03:05:00Z",
+      "updated_at": "2026-08-11T03:05:00Z",
+      "availability_count": 2,
+      "current_user_selected": true
+    }
+  ]
+}
+```
+
+### 活动投票
+
+- 创建或覆盖当前用户对单个 Proposal 的选择：`PUT /api/v1/groups/{group_id}/hangouts/{hangout_id}/proposals/{proposal_id}/vote`
+- 撤销当前用户对该 Proposal 的选择：`DELETE /api/v1/groups/{group_id}/hangouts/{hangout_id}/proposals/{proposal_id}/vote`
+
+PUT 请求：
+
+```json
+{
+  "value": "LIKE"
+}
+```
+
+- `value` 只能是 `LIKE`、`OK` 或 `DISLIKE`；不区分创建和覆盖，成功均返回 `200 OK`。
+- 当前用户对同一 Proposal 最多一票。PUT 使用数据库唯一约束和原子 upsert；重复提交同一值幂等，提交不同值覆盖原值，不会产生重复记录。
+- Proposal 必须属于路径 Hangout；缺失或跨 Hangout 统一返回 `40430`。
+- DELETE 在当前用户已无该票时仍幂等成功。PUT 和 DELETE 的 `data` 均返回上述单个 Proposal 摘要，包含操作后的实时计数和 `current_user_vote`。
+
+### 时间多选
+
+`PUT /api/v1/groups/{group_id}/hangouts/{hangout_id}/time-votes/me`
+
+请求：
+
+```json
+{
+  "time_option_ids": [
+    "a377ae4f-37d2-48ad-9e18-f8b61cba1f93",
+    "414426de-ff53-4838-8084-c98a19acaed5"
+  ]
+}
+```
+
+- 一次请求原子替换当前用户在该 Hangout 下的全部时间选择；不在新数组中的旧选择被删除，空数组表示全部清空。
+- 服务端在删除任何旧票前，先校验数组中的全部 ID。任意 ID 不存在或属于其他 Hangout 均返回 `40440`，不改变原选择。
+- 数组不允许重复 ID，否则返回 `42250`；完全相同的非重复数组可重复提交并幂等成功。
+- 成功返回 `200 OK`，`data.time_options` 为该 Hangout 的全部 TimeOption 摘要，包含替换后的实时可用人数与当前用户选择。
+
+### 写票状态、事务与错误码
+
+- ProposalVote 和 TimeVote 只允许在 `status=voting` 且 `voting_deadline` 为 `null` 或事务校验时仍严格晚于当前时间时写入。非 `voting` 或已到截止时间统一返回 `40950`。
+- 写票按当前 active GroupMember、Hangout 的固定顺序加锁，同一用户的并发写入被其 GroupMember 行串行化；Hangout 使用共享行锁，允许不同成员并发投票，同时与后续状态变更形成边界。
+- 校验、写入、聚合结果读取和 commit 处于同一事务；任一步失败都 rollback。唯一约束或其他数据库完整性冲突只返回安全业务错误，不泄露 SQL、约束名或堆栈。
+
+| HTTP | 业务 code | 语义                                                     |
+| ---- | --------- | -------------------------------------------------------- |
+| 404  | `40410`   | 群组不存在或当前用户不是 active 成员                   |
+| 404  | `40420`   | Hangout 不存在、与路径 Group 不匹配或不可见              |
+| 404  | `40430`   | Proposal 不存在或与路径 Hangout 不匹配                |
+| 404  | `40440`   | TimeOption 不存在或与路径 Hangout 不匹配              |
+| 409  | `40950`   | Hangout 未开放投票、已过截止时间或写票数据库冲突 |
+| 422  | `42250`   | `time_option_ids` 包含重复 ID                          |
+
+`value` 枚举、JSON 字段、UUID 路径参数或未声明字段校验失败继续使用通用 `422 / 40001`。
+
+## 手动确认 Event 契约
+
+以下接口均需要 Bearer Token：
+
+- `PUT /api/v1/groups/{group_id}/hangouts/{hangout_id}/event`
+- `GET /api/v1/groups/{group_id}/hangouts/{hangout_id}/event`
+
+投票摘要只提供数据参考，后端不自动计算或选择获胜者。约玩局创建者或 active 群主必须手动选择一个 Proposal 和一个 TimeOption。
+
+### 确认 Event
+
+PUT 请求：
+
+```json
+{
+  "proposal_id": "62429e4e-24cf-495c-b223-f63891147cf7",
+  "time_option_id": "a377ae4f-37d2-48ad-9e18-f8b61cba1f93"
+}
+```
+
+- 当前用户必须是 active 群组成员，并且是 Hangout 创建者或 active 群主；普通 active 成员返回 `40350`。
+- 首次确认只允许从 `status=voting` 进行，是否已经到 `voting_deadline` 不阻止负责人确认，因此也允许在截止时间前提前确认。其他状态首次确认返回 `40960`。
+- Proposal 和 TimeOption 必须都属于路径 Hangout；不存在或跨 Hangout 分别返回不会泄露其他作用域资源的 `40430` 和 `40440`。
+- Event 快照复制 Proposal 的 `title`、`description`、`location_text`，以及 TimeOption 的 `starts_at`、`ends_at`；同时保存两个候选 ID 和当前确认用户 ID。
+- Repository 按当前 active GroupMember、Hangout 的顺序获取排他锁。Event 创建、`Hangout.status=confirmed` 和 `confirmed_at` 在同一事务中提交；失败整体回滚。Hangout 锁将并发确认串行化，数据库的 `events.hangout_id` 唯一约束保证每个 Hangout 最多一个 Event。
+- 已确认后用相同 `proposal_id` 和 `time_option_id` 重复 PUT 会幂等返回原 Event；任一选择不同返回 `40961`，不会覆盖 Event。
+- 确认成功后 Hangout 立即成为 `confirmed`。投票摘要仍可 GET；现有活动投票和时间投票写接口统一返回 `40950`。
+
+成功返回 `200 OK`，统一 envelope 的 `data`：
+
+```json
+{
+  "id": "71e0ef1c-0a08-4561-b061-52f4dd997621",
+  "hangout_id": "5b017070-0501-4b76-99dc-3aa57bc395ca",
+  "proposal_id": "62429e4e-24cf-495c-b223-f63891147cf7",
+  "time_option_id": "a377ae4f-37d2-48ad-9e18-f8b61cba1f93",
+  "confirmed_by_user_id": "28a03322-3016-4142-b762-44ce83c5f1c1",
+  "title": "桌游店",
+  "description": "可以提前订包间",
+  "location_text": "徐汇区某商场 5 楼",
+  "starts_at": "2026-08-16T10:00:00Z",
+  "ends_at": "2026-08-16T12:00:00Z",
+  "created_at": "2026-08-12T03:00:00Z",
+  "updated_at": "2026-08-12T03:00:00Z"
+}
+```
+
+### 读取 Event
+
+- 任何 active 群组成员都可以读取已确认 Event。
+- 群组不存在、非成员或 left 成员返回 `40410`；Hangout 不存在、跨 Group 或不可见返回 `40420`。
+- 路径作用域有效但尚无 Event 时返回 `40450`。不会通过该接口确认其他 Group/Hangout/Event 是否存在。
+- 成功返回 `200 OK`，`data` 与上述 Event 结构相同。候选引用在数据库中允许因未来删除而变为 `null`，Event 快照不受影响。
+
+### Event 错误码
+
+| HTTP | 业务 code | 语义                                                   |
+| ---- | --------- | ------------------------------------------------------ |
+| 403  | `40350`   | 当前 active 成员不是 Hangout 创建者或群主              |
+| 404  | `40410`   | 群组不存在或当前用户不是 active 成员                   |
+| 404  | `40420`   | Hangout 不存在、与路径 Group 不匹配或不可见            |
+| 404  | `40430`   | Proposal 不存在或与路径 Hangout 不匹配                 |
+| 404  | `40440`   | TimeOption 不存在或与路径 Hangout 不匹配               |
+| 404  | `40450`   | 路径作用域有效但 Event 不存在                           |
+| 409  | `40960`   | Hangout 状态或数据库完整性不允许首次确认 Event          |
+| 409  | `40961`   | Event 已使用不同 Proposal 或 TimeOption 确认            |
+
+JSON 字段、UUID 路径参数或未声明字段校验失败继续使用通用 `422 / 40001`。所有错误消息隐藏 SQL、约束名、堆栈和其他作用域资源的存在性。
 
 ### 头像上传错误码
 

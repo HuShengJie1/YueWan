@@ -45,6 +45,236 @@
       </view>
     </view>
 
+    <block wx:if="{{ hangout.status === 'confirmed' }}">
+      <view
+        wx:if="{{ eventRefreshError }}"
+        class="refresh-error"
+        bindtap="onEventRefreshRetry"
+      >
+        <text>{{ eventRefreshError }}</text>
+        <text class="retry-link">点击重试</text>
+      </view>
+
+      <view wx:if="{{ eventStatus === 'loading' }}" class="event-state-card">
+        <t-loading theme="circular" size="38rpx" text="正在读取正式活动" />
+      </view>
+
+      <view wx:elif="{{ eventStatus === 'error' }}" class="section-error-card event-state-card">
+        <text>{{ eventErrorMessage }}</text>
+        <t-button size="small" variant="text" theme="primary" bindtap="onEventRetry">
+          重新加载
+        </t-button>
+      </view>
+
+      <view wx:elif="{{ event }}" class="event-card">
+        <view class="event-card-heading">
+          <view class="event-title-copy">
+            <text class="event-eyebrow">OFFICIAL EVENT</text>
+            <text class="event-title">{{ event.title }}</text>
+          </view>
+          <text class="event-status-pill">已确认</text>
+        </view>
+        <text class="event-description">{{ event.descriptionText }}</text>
+        <view class="event-detail-row">
+          <text class="event-detail-label">地点</text>
+          <text class="event-detail-value">{{ event.locationText }}</text>
+        </view>
+        <view class="event-detail-row">
+          <text class="event-detail-label">开始</text>
+          <text class="event-detail-value">{{ event.startsAtText }}</text>
+        </view>
+        <view class="event-detail-row">
+          <text class="event-detail-label">结束</text>
+          <text class="event-detail-value">{{ event.endsAtText }}</text>
+        </view>
+        <text class="event-confirmation-state">{{ event.confirmationStatusText }}</text>
+      </view>
+    </block>
+
+    <block wx:if="{{ hangout.status === 'voting' || hangout.status === 'confirmed' }}">
+      <view wx:if="{{ hangout.status === 'voting' && isVotingClosed }}" class="voting-closed-card">
+        <text class="voting-closed-title">投票已截止</text>
+        <text class="voting-closed-description">
+          {{ votingClosedText || '当前已不能修改活动或时间选择' }}
+        </text>
+      </view>
+
+      <view
+        wx:if="{{ votingRefreshError }}"
+        class="refresh-error"
+        bindtap="onVotingRefreshRetry"
+      >
+        <text>{{ votingRefreshError }}</text>
+        <text class="retry-link">点击重试</text>
+      </view>
+
+      <view wx:if="{{ votingStatus === 'loading' }}" class="voting-state-card">
+        <t-loading theme="circular" size="40rpx" text="正在读取投票和票数" />
+      </view>
+
+      <view wx:elif="{{ votingStatus === 'error' }}" class="section-error-card voting-state-card">
+        <text>{{ votingErrorMessage }}</text>
+        <t-button size="small" variant="text" theme="primary" bindtap="onVotingRetry">
+          重新加载
+        </t-button>
+      </view>
+
+      <block wx:else>
+        <view class="candidate-section">
+          <view class="section-heading">
+            <view class="section-copy">
+              <text class="section-title">活动投票</text>
+              <text class="section-subtitle">
+                {{ hangout.status === 'voting' ? 'LIKE、OK、DISLIKE 三选一，再次点击已选项可撤销' : '正式活动已确认，以下票数仅供回顾' }}
+              </text>
+            </view>
+            <t-loading
+              wx:if="{{ isRefreshingVotes }}"
+              theme="circular"
+              size="30rpx"
+            />
+          </view>
+
+          <view wx:if="{{ proposalVoteErrorMessage }}" class="vote-inline-error">
+            {{ proposalVoteErrorMessage }}
+          </view>
+
+          <view wx:if="{{ votingProposals.length === 0 }}" class="section-empty-card">
+            <view class="empty-icon">票</view>
+            <text class="empty-title">没有可投票的候选活动</text>
+            <text class="empty-description">当前约玩局没有可用的活动选项。</text>
+          </view>
+
+          <view wx:else class="candidate-list">
+            <view wx:for="{{ votingProposals }}" wx:key="id" class="proposal-card voting-proposal-card">
+              <view class="candidate-card-heading">
+                <text class="candidate-title">{{ item.title }}</text>
+                <text wx:if="{{ hangout.status === 'voting' && item.isVoteSubmitting }}" class="proposal-submit-state">提交中</text>
+              </view>
+              <view class="location-row">
+                <text class="location-marker">地</text>
+                <text class="location-text">{{ item.locationText }}</text>
+              </view>
+              <text class="candidate-description">{{ item.descriptionSummary }}</text>
+              <view wx:if="{{ item.externalLinkText }}" class="external-link-hint">
+                <text class="link-marker">链</text>
+                <text>{{ item.externalLinkText }}</text>
+              </view>
+
+              <view class="proposal-vote-options">
+                <view
+                  class="proposal-vote-option vote-like {{ item.current_user_vote === 'LIKE' ? 'proposal-vote-option-selected' : '' }} {{ hangout.status !== 'voting' || isVotingClosed || item.isVoteSubmitting ? 'proposal-vote-option-disabled' : '' }}"
+                  data-proposal-id="{{ item.id }}"
+                  data-value="LIKE"
+                  bindtap="onProposalVoteTap"
+                >
+                  <text class="proposal-vote-label">LIKE</text>
+                  <text class="proposal-vote-caption">很想去</text>
+                  <text class="proposal-vote-count">{{ item.vote_counts.LIKE }} 票</text>
+                </view>
+                <view
+                  class="proposal-vote-option vote-ok {{ item.current_user_vote === 'OK' ? 'proposal-vote-option-selected' : '' }} {{ hangout.status !== 'voting' || isVotingClosed || item.isVoteSubmitting ? 'proposal-vote-option-disabled' : '' }}"
+                  data-proposal-id="{{ item.id }}"
+                  data-value="OK"
+                  bindtap="onProposalVoteTap"
+                >
+                  <text class="proposal-vote-label">OK</text>
+                  <text class="proposal-vote-caption">可以</text>
+                  <text class="proposal-vote-count">{{ item.vote_counts.OK }} 票</text>
+                </view>
+                <view
+                  class="proposal-vote-option vote-dislike {{ item.current_user_vote === 'DISLIKE' ? 'proposal-vote-option-selected' : '' }} {{ hangout.status !== 'voting' || isVotingClosed || item.isVoteSubmitting ? 'proposal-vote-option-disabled' : '' }}"
+                  data-proposal-id="{{ item.id }}"
+                  data-value="DISLIKE"
+                  bindtap="onProposalVoteTap"
+                >
+                  <text class="proposal-vote-label">DISLIKE</text>
+                  <text class="proposal-vote-caption">不想去</text>
+                  <text class="proposal-vote-count">{{ item.vote_counts.DISLIKE }} 票</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="candidate-section time-section">
+          <view class="section-heading">
+            <view class="section-copy">
+              <text class="section-title">时间投票</text>
+              <text class="section-subtitle">
+                {{ hangout.status === 'voting' ? '可多选，时间均按你的本地时区显示' : '正式活动已确认，以下可用人数仅供回顾' }}
+              </text>
+            </view>
+          </view>
+
+          <view wx:if="{{ votingTimeOptions.length === 0 }}" class="section-empty-card">
+            <view class="empty-icon time-empty-icon">时</view>
+            <text class="empty-title">没有可投票的候选时间</text>
+            <text class="empty-description">当前约玩局没有可用的时间选项。</text>
+          </view>
+
+          <view wx:else class="candidate-list">
+            <view
+              wx:for="{{ votingTimeOptions }}"
+              wx:key="id"
+              class="time-option-card voting-time-card {{ item.isLocallySelected ? 'voting-time-card-selected' : '' }} {{ item.selectionStateClass === 'selection-unsaved' ? 'voting-time-card-unsaved' : '' }} {{ hangout.status !== 'voting' || isVotingClosed || isSavingTimeVotes ? 'voting-time-card-disabled' : '' }}"
+              data-time-option-id="{{ item.id }}"
+              bindtap="onTimeVoteOptionTap"
+            >
+              <view class="candidate-card-heading">
+                <view class="time-heading-copy">
+                  <text class="time-date">{{ item.localDateText }}</text>
+                  <text class="time-label">{{ item.displayLabelText }}</text>
+                </view>
+                <view class="time-selection-control">
+                  {{ hangout.status === 'voting' ? (item.isLocallySelected ? '已选' : '选择') : (item.current_user_selected ? '我的选择' : '未选择') }}
+                </view>
+              </view>
+              <view class="time-range">
+                <view class="time-value-block">
+                  <text class="time-value-label">开始</text>
+                  <text class="time-value">{{ item.startTimeText }}</text>
+                </view>
+                <view class="time-range-line"></view>
+                <view class="time-value-block end-time-block">
+                  <text class="time-value-label">结束</text>
+                  <text class="time-value {{ item.ends_at ? '' : 'time-value-muted' }}">
+                    {{ item.endDisplayText }}
+                  </text>
+                </view>
+              </view>
+              <view class="time-vote-meta">
+                <text class="availability-count">{{ item.availability_count }} 人可用</text>
+                <text class="selection-state {{ item.selectionStateClass }}">
+                  {{ item.selectionStateLabel }}
+                </text>
+              </view>
+            </view>
+          </view>
+
+          <view wx:if="{{ hangout.status === 'voting' && votingTimeOptions.length > 0 }}" class="time-vote-save-card">
+            <text class="time-vote-save-hint">
+              {{ hasTimeVoteChanges ? '有本地选择尚未保存' : '页面上的选择已与服务端一致' }}
+            </text>
+            <view wx:if="{{ timeVoteSaveError }}" class="vote-inline-error time-save-error">
+              {{ timeVoteSaveError }}
+            </view>
+            <t-button
+              block
+              theme="primary"
+              shape="round"
+              loading="{{ isSavingTimeVotes }}"
+              disabled="{{ !hasTimeVoteChanges || isSavingTimeVotes || isVotingClosed }}"
+              bindtap="onSaveTimeVotesTap"
+            >
+              保存时间选择
+            </t-button>
+          </view>
+        </view>
+      </block>
+    </block>
+
+    <block wx:else>
     <view class="candidate-section">
       <view class="section-heading">
         <view class="section-copy">
@@ -292,19 +522,59 @@
         <text wx:else class="list-end">全部候选时间都在这里了</text>
       </view>
     </view>
+    </block>
 
     <view class="phase-note-card">
       <text class="phase-note-eyebrow">当前阶段</text>
       <text class="phase-note-title">
-        {{ hangout.status === 'draft' ? '草稿阶段可以继续完善候选' : '候选内容已停止编辑' }}
+        {{ hangout.status === 'draft' ? '草稿阶段可以继续完善候选' : (hangout.status === 'confirmed' ? '正式活动已经确认' : (isVotingClosed ? '投票已截止，等待负责人确认' : '活动与时间投票进行中')) }}
       </text>
-      <text class="phase-note-description">活动投票、时间投票和票数统计将在下一轮开放。</text>
+      <text class="phase-note-description">
+        {{ hangout.status === 'draft' ? '开启投票后，候选活动和时间将被冻结。' : (hangout.status === 'confirmed' ? 'Event 已保存正式活动快照，投票结果保留为只读。' : '票数会实时更新，最终活动由负责人手动选择。') }}
+      </text>
+    </view>
+
+    <view wx:if="{{ canConfirmEvent }}" class="confirm-event-action">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isNavigating }}"
+        disabled="{{ isNavigating || isStartingVoting }}"
+        bindtap="onConfirmEventTap"
+      >
+        确认活动
+      </t-button>
+      <text class="confirm-event-hint">查看完整票数后，手动选择最终活动与时间。</text>
+    </view>
+
+    <view wx:if="{{ canStartVoting }}" class="start-voting-action">
+      <t-button
+        block
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{ isStartingVoting }}"
+        disabled="{{ isStartingVoting || isNavigating || deletingCandidateId }}"
+        bindtap="onStartVotingTap"
+      >
+        开始投票
+      </t-button>
+    </view>
+
+    <view
+      wx:elif="{{ hangout.status === 'draft' }}"
+      class="waiting-voting-card"
+    >
+      等待发起人开启投票
     </view>
 
     <view wx:if="{{ canEdit }}" class="edit-action">
       <t-button
         block
         theme="primary"
+        variant="outline"
         size="large"
         shape="round"
         loading="{{ isNavigating && pendingRefreshSection === 'all' }}"

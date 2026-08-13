@@ -7,7 +7,11 @@ from app.core.exceptions import (
     GroupNotFoundError,
     HangoutEditForbiddenError,
     HangoutNotFoundError,
+    HangoutProposalRequiredError,
     HangoutStateConflictError,
+    HangoutTimeOptionRequiredError,
+    HangoutVotingDeadlineElapsedError,
+    HangoutVotingForbiddenError,
     InvalidGroupCursorError,
 )
 from app.core.group_security import HangoutPageCursor, SignedCursorCodec
@@ -88,6 +92,9 @@ class FakeHangoutRepository:
         self.updated_with: dict[str, object] | None = None
         self.listed_with: dict[str, object] | None = None
         self.fail_commit: Exception | None = None
+        self.proposal_count = 1
+        self.time_option_count = 1
+        self.started_voting = False
         self.committed = False
         self.rolled_back = False
 
@@ -125,6 +132,17 @@ class FakeHangoutRepository:
         hangout.voting_deadline = arguments["voting_deadline"]  # type: ignore[assignment]
         return hangout
 
+    async def count_proposals(self, **_arguments: object) -> int:
+        return self.proposal_count
+
+    async def count_time_options(self, **_arguments: object) -> int:
+        return self.time_option_count
+
+    async def start_voting(self, hangout: Hangout) -> Hangout:
+        self.started_voting = True
+        hangout.status = HangoutStatus.VOTING
+        return hangout
+
     async def commit(self) -> None:
         if self.fail_commit is not None:
             raise self.fail_commit
@@ -138,6 +156,7 @@ def make_service(repository: FakeHangoutRepository) -> HangoutService:
     return HangoutService(
         repository=repository,  # type: ignore[arg-type]
         cursors=SignedCursorCodec(secret=SECRET),
+        clock=lambda: NOW,
     )
 
 
@@ -325,3 +344,110 @@ async def test_write_rolls_back_when_commit_fails() -> None:
 
     assert repository.rolled_back
     assert not repository.committed
+
+
+@pytest.mark.parametrize("starter", ["creator", "owner"])
+async def test_creator_or_owner_can_start_voting(starter: str) -> None:
+    creator = make_user()
+    current_user = creator if starter == "creator" else make_user()
+    group_id = uuid4()
+    repository = FakeHangoutRepository(user=current_user, group_id=group_id)
+    repository.membership = make_membership(
+        group_id=group_id,
+        user_id=current_user.id,
+        role=GroupMemberRole.OWNER if starter == "owner" else GroupMemberRole.MEMBER,
+    )
+    repository.hangout = make_hangout(group_id=group_id, creator_id=creator.id)
+
+    hangout = await make_service(repository).start_voting(
+        current_user,
+        group_id=group_id,
+        hangout_id=repository.hangout.id,
+    )
+
+    assert hangout.status == HangoutStatus.VOTING
+    assert repository.started_voting
+    assert repository.committed
+    assert not repository.rolled_back
+
+
+async def test_regular_member_cannot_start_voting() -> None:
+    user = make_user()
+    group_id = uuid4()
+    repository = FakeHangoutRepository(user=user, group_id=group_id)
+    repository.hangout = make_hangout(group_id=group_id, creator_id=uuid4())
+
+    with pytest.raises(HangoutVotingForbiddenError):
+        await make_service(repository).start_voting(
+            user,
+            group_id=group_id,
+            hangout_id=repository.hangout.id,
+        )
+
+    assert not repository.started_voting
+    assert repository.rolled_back
+
+
+async def test_non_member_and_wrong_hangout_cannot_start_voting() -> None:
+    user = make_user()
+    group_id = uuid4()
+    repository = FakeHangoutRepository(user=user, group_id=group_id)
+    repository.membership = None
+    repository.hangout = make_hangout(group_id=group_id, creator_id=user.id)
+    service = make_service(repository)
+
+    with pytest.raises(GroupNotFoundError):
+        await service.start_voting(
+            user,
+            group_id=group_id,
+            hangout_id=repository.hangout.id,
+        )
+
+    repository.membership = make_membership(group_id=group_id, user_id=user.id)
+    repository.hangout = None
+    with pytest.raises(HangoutNotFoundError):
+        await service.start_voting(
+            user,
+            group_id=group_id,
+            hangout_id=uuid4(),
+        )
+
+    assert not repository.started_voting
+    assert repository.rolled_back
+
+
+@pytest.mark.parametrize(
+    ("setup", "expected_error"),
+    [
+        ("no_proposal", HangoutProposalRequiredError),
+        ("no_time_option", HangoutTimeOptionRequiredError),
+        ("wrong_state", HangoutStateConflictError),
+        ("elapsed_deadline", HangoutVotingDeadlineElapsedError),
+    ],
+)
+async def test_start_voting_rejects_unready_hangout(
+    setup: str,
+    expected_error: type[Exception],
+) -> None:
+    user = make_user()
+    group_id = uuid4()
+    repository = FakeHangoutRepository(user=user, group_id=group_id)
+    repository.hangout = make_hangout(group_id=group_id, creator_id=user.id)
+    if setup == "no_proposal":
+        repository.proposal_count = 0
+    elif setup == "no_time_option":
+        repository.time_option_count = 0
+    elif setup == "wrong_state":
+        repository.hangout.status = HangoutStatus.VOTING
+    else:
+        repository.hangout.voting_deadline = NOW
+
+    with pytest.raises(expected_error):
+        await make_service(repository).start_voting(
+            user,
+            group_id=group_id,
+            hangout_id=repository.hangout.id,
+        )
+
+    assert not repository.started_voting
+    assert repository.rolled_back

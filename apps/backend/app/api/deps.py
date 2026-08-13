@@ -16,18 +16,22 @@ from app.db.session import get_db_session
 from app.integrations.storage.local import LocalAvatarStorage
 from app.integrations.wechat.client import WeChatClient
 from app.models.user import User
+from app.repositories.event import EventRepository
 from app.repositories.group import GroupRepository
 from app.repositories.hangout import HangoutRepository
 from app.repositories.proposal import ProposalRepository
 from app.repositories.time_option import TimeOptionRepository
 from app.repositories.user import UserRepository
+from app.repositories.vote import VoteRepository
 from app.services.auth import AuthService
 from app.services.avatar import AvatarImageProcessor, AvatarService
+from app.services.event import EventService
 from app.services.group import GroupService
 from app.services.hangout import HangoutService
 from app.services.proposal import ProposalService
 from app.services.time_option import TimeOptionService
 from app.services.user import UserService
+from app.services.vote import VoteService
 
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
@@ -152,6 +156,14 @@ def get_time_option_service(
         )
     except ValueError as exc:
         raise AuthNotConfiguredError from exc
+
+
+def get_vote_service(session: DbSession) -> VoteService:
+    return VoteService(repository=VoteRepository(session))
+
+
+def get_event_service(session: DbSession) -> EventService:
+    return EventService(repository=EventRepository(session))
 
 
 def get_avatar_service(

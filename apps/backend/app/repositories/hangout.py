@@ -1,13 +1,15 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.group_security import HangoutPageCursor
 from app.models.enums import GroupMemberStatus, HangoutStatus
 from app.models.group import GroupMember
 from app.models.hangout import Hangout
+from app.models.proposal import Proposal
+from app.models.time_option import TimeOption
 
 
 class HangoutRepository:
@@ -133,6 +135,20 @@ class HangoutRepository:
         hangout.title = title
         hangout.description = description
         hangout.voting_deadline = voting_deadline
+        await self._session.flush()
+        await self._session.refresh(hangout)
+        return hangout
+
+    async def count_proposals(self, *, hangout_id: UUID) -> int:
+        statement = select(func.count(Proposal.id)).where(Proposal.hangout_id == hangout_id)
+        return int((await self._session.scalar(statement)) or 0)
+
+    async def count_time_options(self, *, hangout_id: UUID) -> int:
+        statement = select(func.count(TimeOption.id)).where(TimeOption.hangout_id == hangout_id)
+        return int((await self._session.scalar(statement)) or 0)
+
+    async def start_voting(self, hangout: Hangout) -> Hangout:
+        hangout.status = HangoutStatus.VOTING
         await self._session.flush()
         await self._session.refresh(hangout)
         return hangout

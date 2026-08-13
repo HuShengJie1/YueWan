@@ -281,6 +281,11 @@ async def test_candidate_services_commit_and_failed_deletes_roll_back() -> None:
                     )
                     == 1
                 )
+                owner_id = owner.id
+                group_id = group.id
+                hangout_id = hangout.id
+                proposal_id = proposal.proposal.id
+                time_option_id = time_option.time_option.id
 
                 class FailingProposalRepository(ProposalRepository):
                     async def commit(self) -> None:
@@ -292,16 +297,18 @@ async def test_candidate_services_commit_and_failed_deletes_roll_back() -> None:
                         cursors=cursors,
                     ).delete_proposal(
                         owner,
-                        group_id=group.id,
-                        hangout_id=hangout.id,
-                        proposal_id=proposal.proposal.id,
+                        group_id=group_id,
+                        hangout_id=hangout_id,
+                        proposal_id=proposal_id,
                     )
                 assert (
                     await session.scalar(
-                        select(func.count(Proposal.id)).where(Proposal.id == proposal.proposal.id)
+                        select(func.count(Proposal.id)).where(Proposal.id == proposal_id)
                     )
                     == 1
                 )
+                owner = await session.get(User, owner_id)
+                assert owner is not None
 
                 class FailingTimeOptionRepository(TimeOptionRepository):
                     async def commit(self) -> None:
@@ -314,15 +321,13 @@ async def test_candidate_services_commit_and_failed_deletes_roll_back() -> None:
                         clock=lambda: NOW,
                     ).delete_time_option(
                         owner,
-                        group_id=group.id,
-                        hangout_id=hangout.id,
-                        time_option_id=time_option.time_option.id,
+                        group_id=group_id,
+                        hangout_id=hangout_id,
+                        time_option_id=time_option_id,
                     )
                 assert (
                     await session.scalar(
-                        select(func.count(TimeOption.id)).where(
-                            TimeOption.id == time_option.time_option.id
-                        )
+                        select(func.count(TimeOption.id)).where(TimeOption.id == time_option_id)
                     )
                     == 1
                 )
