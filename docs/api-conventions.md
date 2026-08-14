@@ -138,16 +138,46 @@
 
 ### 上传当前用户头像
 
-`POST /api/v1/users/me/avatar`
+生产小程序使用 `PUT /api/v1/users/me/avatar`：
+
+```json
+{
+  "file_id": "cloud://prod-env.bucket/avatar-uploads/<user-id>/<random>.source"
+}
+```
+
+- 需要 Bearer Token，请求为 JSON。
+- 小程序先通过 `wx.cloud.uploadFile` 把原图写入当前用户自己的
+  `avatar-uploads/<user-id>/` 临时目录，再通过 `callContainer` 提交完整 `file_id`。
+- 后端只接受当前 CloudBase 环境、当前用户临时目录下的文件；跨环境、跨用户、目录逃逸或格式错误的
+  `file_id` 返回 `42202`。
+- 后端通过 `callContainer` 注入的短期 `X-CloudBase-*` 凭证获取临时下载地址，不在配置、数据库或日志中
+  保存云凭证。
+- 后端有界下载原图，按下述规则处理后写入 `avatars/<random>.jpg`，数据库只保存最终 HTTPS CDN 地址。
+- 无论处理成功与否，已验证属于当前用户的临时原图都会尽力删除；数据库提交失败时删除新头像，提交成功后
+  再尽力删除旧的受管头像。
+
+本地后端调试继续支持 `POST /api/v1/users/me/avatar`：
 
 - 需要 Bearer Token，请求为 `multipart/form-data`。
 - 文件字段名固定为 `file`，限 JPEG、PNG 或 WebP，最大 5 MiB。
-- 成功返回 `200 OK`，`data` 为更新后的 `user` 对象，其 `avatar_url` 为可持久访问的地址；本地开发可使用 HTTP，真机和生产必须使用 HTTPS。
+- 成功返回 `200 OK`，`data` 为更新后的 `user` 对象，其 `avatar_url` 为可持久访问的地址；本地开发可使用
+  HTTP，真机和生产使用 CloudBase CDN 的 HTTPS 地址。
 - 小程序会在上传前检查文件大小；后端仍必须重新校验真实文件类型、大小和图片可解码性。
 - 后端忽略客户端文件名和声明的 MIME 类型，以实际图片内容为准；图片按 EXIF 方向纠正，最长边缩放到 512 px，去除元数据并统一编码为 JPEG。
-- 微信 `chooseAvatar` 返回的本地临时路径只用于预览和本次上传，不进入 User 响应或数据库。
+- 微信 `chooseAvatar` 返回的本地临时路径和 CloudBase 临时 `file_id` 都不进入 User 响应或数据库。
 
 前端选择头像后会立即调用该接口；上传成功后才将服务端返回的 URL 写入会话用户。
+
+头像相关错误码：
+
+| HTTP | 业务 code | 语义 |
+| ---- | --------- | ---- |
+| 413 | `41301` | 原图超过允许大小 |
+| 415 | `41501` | 图片实际格式不是 JPEG、PNG 或 WebP |
+| 422 | `42201` | 图片无法解码或像素规则不合法 |
+| 422 | `42202` | CloudBase 临时文件不属于当前环境或当前用户 |
+| 503 | `50303` | CloudBase 或本地头像存储暂时不可用 |
 
 ## 群组与成员契约
 

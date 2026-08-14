@@ -42,7 +42,8 @@ FastAPI Router → Service → Repository → SQLAlchemy async → PostgreSQL
 - `constants/`：环境无关的常量和开发配置入口。
 - `utils/`：不包含业务编排的小型工具。
 
-页面不得直接大量调用 `wx.request` 或 `wx.uploadFile`。当前 `services/request.ts` 是唯一的底层请求和文件上传入口；后续按 `auth.ts`、`user.ts`、`group.ts`、`hangout.ts`、`proposal.ts`、`vote.ts` 拆分领域调用。
+页面不得直接调用 `wx.request` 或 `wx.uploadFile`。普通后端请求统一经过 `services/request.ts`；
+云存储上传等领域编排放在对应的 `services/*.ts`（当前头像上传位于 `services/user.ts`）。
 
 ## 配置与启动
 
@@ -79,22 +80,30 @@ JWT 固定使用 HS256，包含 `sub`、`iat`、`exp`、`iss`、`aud` 和 `type=
 
 ## 用户头像上传
 
-头像上传流：
+生产头像上传流：
 
 ```text
 wx.chooseAvatar
-→ services/user.ts 使用 Bearer Token 上传 multipart file
-→ Users Router 有界读取文件
+→ wx.cloud.uploadFile 写入当前用户 avatar-uploads/ 临时对象
+→ services/user.ts 通过 callContainer 提交 file_id + Bearer Token
+→ Users Router 提取 CloudBase 请求凭证并校验 JSON
+→ CloudBaseAvatarStorage 校验环境、用户目录并有界下载原图
 → AvatarService 校验、纠正方向、缩放并重新编码
-→ LocalAvatarStorage 原子写入新文件
+→ CloudBaseAvatarStorage 写入随机命名的 avatars/*.jpg
 → UserRepository 更新 avatar_url 并提交事务
-→ 成功后尽力清理旧的受管头像
+→ 尽力清理临时原图及旧的受管头像
 ```
 
 - Router 只负责认证、multipart 解析和限制读取长度；图片规则及事务补偿由 `AvatarService` 编排。
+- 本地 `POST /users/me/avatar` 仍由 Router 有界读取 multipart；生产 `PUT /users/me/avatar` 只接收
+  CloudBase `file_id`，原图获取和对象存储操作集中在 `app/integrations/storage/`。
 - 图片内容会重新解码，JPEG、PNG、WebP 输入统一输出为最长边 512 px 的 JPEG；不会保留 EXIF 等客户端元数据，也不接受 SVG 或动画图片。
-- MVP 使用 `app/integrations/storage/` 下的本地磁盘适配器，文件名由服务端随机生成，并通过只读 `/media` 路径提供访问。数据库提交失败时删除新文件，提交成功后再清理旧的受管文件，避免把 User 指向未提交或已删除的资源。
-- 本地适配器要求可持久化、可备份的磁盘。多实例或无持久磁盘部署应替换为对象存储适配器和 HTTPS CDN 地址，不能依赖单实例本地目录。
+- `CloudBaseAvatarStorage` 只转发单次 `callContainer` 请求注入的短期 `X-CloudBase-*` 凭证；凭证不落库、
+  不写日志，也不传给小程序业务代码。适配器只接受当前环境及当前用户临时目录的 file ID。
+- 生产最终文件使用服务端随机名称和 HTTPS CDN 地址。数据库提交失败时删除新文件，提交成功后再清理旧头像；
+  已验证的临时原图无论成功失败都尽力删除。
+- 本地开发保留 `LocalAvatarStorage` 和 `/media`，由 `AVATAR_STORAGE_BACKEND=local` 选择；云托管设置为
+  `cloudbase`，不依赖容器临时磁盘。
 
 ## 第三方链接规划（未实现）
 

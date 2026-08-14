@@ -67,9 +67,11 @@ ACCESS_TOKEN_TTL_SECONDS=7200
 
 ## 本地头像存储
 
-默认配置会把清洗后的头像写入被 Git 忽略的 `apps/backend/var/media/avatars/`，并由 FastAPI 在 `/media` 下提供访问。可在 `.env` 覆盖：
+默认 `AVATAR_STORAGE_BACKEND=local`，会把清洗后的头像写入被 Git 忽略的
+`apps/backend/var/media/avatars/`，并由 FastAPI 在 `/media` 下提供访问。可在 `.env` 覆盖：
 
 ```dotenv
+AVATAR_STORAGE_BACKEND=local
 MEDIA_ROOT=var/media
 MEDIA_URL_PATH=/media
 MEDIA_PUBLIC_BASE_URL=http://127.0.0.1:8000/media
@@ -87,7 +89,25 @@ curl -X POST http://127.0.0.1:8000/api/v1/users/me/avatar \
   -F 'file=@/absolute/path/avatar.png'
 ```
 
-开发默认接受 JPEG、PNG、WebP 输入，单文件最大 5 MiB；输出统一为最长边不超过 512 px 的 JPEG。真机测试时，`MEDIA_PUBLIC_BASE_URL` 必须是手机可访问的地址；生产环境必须使用微信后台已配置的 HTTPS 域名，并保证 `MEDIA_ROOT` 位于持久化、可备份的磁盘。多实例或无持久磁盘部署应先替换本地存储适配器。
+开发默认接受 JPEG、PNG、WebP 输入，单文件最大 5 MiB；输出统一为最长边不超过 512 px 的 JPEG。只有
+继续使用 `local` 适配器做跨设备测试时，`MEDIA_PUBLIC_BASE_URL` 才需要指向手机可访问的地址，且
+`MEDIA_ROOT` 必须位于持久化、可备份的磁盘。微信云托管生产环境使用下述 `cloudbase` 适配器。
+
+微信云托管生产环境使用同一环境的对象存储，不开启服务公网访问。服务版本需要配置以下非秘密变量：
+
+```dotenv
+AVATAR_STORAGE_BACKEND=cloudbase
+CLOUDBASE_ENV_ID=prod-d6guq5h1yaf1568bd
+CLOUDBASE_STORAGE_PUBLIC_BASE_URL=https://7072-prod-d6guq5h1yaf1568bd-1465494842.tcb.qcloud.la
+```
+
+小程序通过 `wx.cloud.uploadFile` 把原图写入 `avatar-uploads/<user-id>/`，随后通过 `callContainer`
+提交 file ID。后端从该请求的 `X-CloudBase-Authorization`、`X-CloudBase-SessionToken` 和
+`X-CloudBase-TimeStamp` 取得单次短期凭证，调用官方 CloudBase OpenAPI 下载、上传和删除对象。
+这些请求头由平台注入，不要手工配置、打印或写入 `.env`。
+
+对象存储保持“所有用户可读，仅创建者可读写”，使最终随机头像 URL 可由小程序直接显示；服务端始终拥有对象
+读写权限。临时原图与最终头像使用不同前缀，后端只接受当前用户临时前缀。
 
 ## Alembic
 

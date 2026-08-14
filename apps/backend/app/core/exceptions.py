@@ -104,6 +104,15 @@ class InvalidAvatarImageError(AppError):
         )
 
 
+class InvalidCloudAvatarFileError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            code=42202,
+            message="Invalid cloud avatar file",
+        )
+
+
 class AvatarStorageUnavailableError(AppError):
     def __init__(self) -> None:
         super().__init__(

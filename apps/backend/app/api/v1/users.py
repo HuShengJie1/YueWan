@@ -10,7 +10,7 @@ from app.api.deps import (
 )
 from app.core.exceptions import AvatarFileTooLargeError
 from app.schemas.common import ApiErrorResponse, ApiResponse
-from app.schemas.user import UserRead, UserUpdate
+from app.schemas.user import CloudAvatarUpdate, UserRead, UserUpdate
 from app.services.avatar import AvatarService
 from app.services.user import UserService
 
@@ -76,4 +76,25 @@ async def upload_current_user_avatar(
         raise AvatarFileTooLargeError
 
     user = await service.update_avatar(current_user, content=content)
+    return ApiResponse(data=UserRead.from_user(user))
+
+
+@router.put(
+    "/me/avatar",
+    response_model=ApiResponse[UserRead],
+    responses={
+        401: {"model": ApiErrorResponse},
+        403: {"model": ApiErrorResponse},
+        413: {"model": ApiErrorResponse},
+        415: {"model": ApiErrorResponse},
+        422: {"model": ApiErrorResponse},
+        503: {"model": ApiErrorResponse},
+    },
+)
+async def update_current_user_avatar_from_cloud(
+    payload: CloudAvatarUpdate,
+    current_user: CurrentUser,
+    service: AvatarServiceDependency,
+) -> ApiResponse[UserRead]:
+    user = await service.update_avatar_from_cloud(current_user, file_id=payload.file_id)
     return ApiResponse(data=UserRead.from_user(user))

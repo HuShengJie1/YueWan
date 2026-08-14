@@ -127,7 +127,12 @@ Page({
 
     try {
       await validateAvatarFile(filePath);
-      const user = await uploadCurrentUserAvatar(filePath);
+      const currentUser = getAuthState().user;
+      if (!currentUser) {
+        await reLaunchToLogin("expired");
+        return;
+      }
+      const user = await uploadCurrentUserAvatar(filePath, currentUser.id);
       if (!user.avatar_url) {
         throw new Error("头像上传成功，但服务未返回头像地址");
       }

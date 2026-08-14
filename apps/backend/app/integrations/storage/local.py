@@ -1,17 +1,13 @@
 import os
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
 from starlette.concurrency import run_in_threadpool
 
+from app.integrations.storage.base import StoredAvatar
+
 MANAGED_AVATAR_KEY = re.compile(r"avatars/[0-9a-f]{32}\.jpg")
-
-
-@dataclass(frozen=True, slots=True)
-class StoredAvatar:
-    url: str
 
 
 class LocalAvatarStorage:

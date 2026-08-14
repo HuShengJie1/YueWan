@@ -30,3 +30,10 @@ class UserUpdate(BaseModel):
         str,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=24),
     ]
+
+
+class CloudAvatarUpdate(BaseModel):
+    file_id: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=2048),
+    ]

@@ -1,18 +1,23 @@
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import (
     AuthNotConfiguredError,
+    AvatarStorageUnavailableError,
     InactiveUserError,
     InvalidAccessTokenError,
 )
 from app.core.group_security import GroupInviteTokenService, SignedCursorCodec
 from app.core.security import AccessTokenService
 from app.db.session import get_db_session
+from app.integrations.storage.cloudbase import (
+    CloudBaseAvatarStorage,
+    CloudBaseRequestCredentials,
+)
 from app.integrations.storage.local import LocalAvatarStorage
 from app.integrations.wechat.client import WeChatClient
 from app.models.user import User
@@ -167,21 +172,46 @@ def get_event_service(session: DbSession) -> EventService:
 
 
 def get_avatar_service(
+    request: Request,
     session: DbSession,
     settings: SettingsDependency,
 ) -> AvatarService:
-    return AvatarService(
-        repository=UserRepository(session),
-        storage=LocalAvatarStorage(
+    temporary_source = None
+    if settings.avatar_storage_backend == "cloudbase":
+        if not settings.cloudbase_env_id or not settings.cloudbase_storage_public_base_url:
+            raise AvatarStorageUnavailableError
+        authorization = request.headers.get("x-cloudbase-authorization")
+        session_token = request.headers.get("x-cloudbase-sessiontoken")
+        timestamp = request.headers.get("x-cloudbase-timestamp")
+        if not authorization or not session_token or not timestamp:
+            raise AvatarStorageUnavailableError
+        storage = CloudBaseAvatarStorage(
+            env_id=settings.cloudbase_env_id,
+            public_base_url=settings.cloudbase_storage_public_base_url,
+            credentials=CloudBaseRequestCredentials(
+                authorization=authorization,
+                session_token=session_token,
+                timestamp=timestamp,
+            ),
+        )
+        temporary_source = storage
+    else:
+        storage = LocalAvatarStorage(
             root=settings.media_root,
             public_base_url=settings.media_public_base_url,
-        ),
+        )
+
+    return AvatarService(
+        repository=UserRepository(session),
+        storage=storage,
         processor=AvatarImageProcessor(
             max_upload_bytes=settings.avatar_max_upload_bytes,
             max_dimension=settings.avatar_max_dimension,
             max_source_pixels=settings.avatar_max_source_pixels,
             jpeg_quality=settings.avatar_jpeg_quality,
         ),
+        temporary_source=temporary_source,
+        max_upload_bytes=settings.avatar_max_upload_bytes,
     )
 
 

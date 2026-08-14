@@ -209,6 +209,10 @@ def test_authentication_routes_are_documented_with_bearer_security() -> None:
     assert avatar_operation["security"] == [{"BearerAuth": []}]
     assert "multipart/form-data" in avatar_operation["requestBody"]["content"]
     assert "413" in avatar_operation["responses"]
+    cloud_avatar_operation = schema["paths"]["/api/v1/users/me/avatar"]["put"]
+    assert cloud_avatar_operation["security"] == [{"BearerAuth": []}]
+    assert "application/json" in cloud_avatar_operation["requestBody"]["content"]
+    assert "503" in cloud_avatar_operation["responses"]
 
 
 async def test_upload_current_user_avatar() -> None:
@@ -255,3 +259,27 @@ async def test_upload_current_user_avatar_rejects_oversized_file() -> None:
         "message": "Avatar file is too large",
         "data": None,
     }
+
+
+async def test_update_current_user_avatar_from_cloud_file() -> None:
+    user = make_user()
+
+    class FakeAvatarService:
+        async def update_avatar_from_cloud(self, current_user: User, *, file_id: str) -> User:
+            assert current_user is user
+            assert file_id == "cloud://prod.bucket/avatar-uploads/user/source"
+            current_user.avatar_url = "https://storage.example.com/avatars/new.jpg"
+            return current_user
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_avatar_service] = FakeAvatarService
+
+    response = await request(
+        "PUT",
+        "/api/v1/users/me/avatar",
+        headers={"Authorization": "Bearer signed-token"},
+        json={"file_id": " cloud://prod.bucket/avatar-uploads/user/source "},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["avatar_url"] == ("https://storage.example.com/avatars/new.jpg")

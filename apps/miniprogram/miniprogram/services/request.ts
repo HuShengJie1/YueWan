@@ -1,4 +1,4 @@
-import { AVATAR_UPLOAD_BASE_URL, CLOUD_CONTAINER_SERVICE } from "../constants/api";
+import { CLOUD_CONTAINER_SERVICE } from "../constants/api";
 
 export interface ApiResponse<T> {
   code: number;
@@ -16,15 +16,6 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   authenticated?: boolean;
   responseMode?: "json" | "no-content";
-}
-
-export interface UploadOptions {
-  path: string;
-  filePath: string;
-  name: string;
-  formData?: Record<string, string>;
-  headers?: Record<string, string>;
-  authenticated?: boolean;
 }
 
 interface RequestAuthConfiguration {
@@ -143,36 +134,6 @@ export function request<T>(options: RequestOptions): Promise<T> {
               options.responseMode,
             ),
           );
-        } catch (error) {
-          reject(error);
-        }
-      },
-      fail: (error) => {
-        reject(new ApiError(error.errMsg, 0));
-      },
-    });
-  });
-}
-
-export function uploadFile<T>(options: UploadOptions): Promise<T> {
-  return new Promise((resolve, reject) => {
-    wx.uploadFile({
-      url: `${AVATAR_UPLOAD_BASE_URL}${options.path}`,
-      filePath: options.filePath,
-      name: options.name,
-      formData: options.formData,
-      header: buildHeaders(options),
-      timeout: 30_000,
-      success: (response) => {
-        let body: unknown = null;
-        try {
-          body = JSON.parse(response.data) as unknown;
-        } catch {
-          // parseResponse converts an invalid body into a safe API error.
-        }
-
-        try {
-          resolve(parseResponse<T>(body, response.statusCode, options.authenticated !== false));
         } catch (error) {
           reject(error);
         }
