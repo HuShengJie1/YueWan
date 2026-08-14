@@ -21,6 +21,8 @@ TEMP_FILE_ID = f"cloud://{AUTHORITY}/avatar-uploads/user-1/source.upload"
 
 def make_storage(
     handler: Callable[[httpx.Request], httpx.Response],
+    *,
+    timestamp: str | None = "1786723200",
 ) -> tuple[CloudBaseAvatarStorage, httpx.AsyncClient]:
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     storage = CloudBaseAvatarStorage(
@@ -29,11 +31,23 @@ def make_storage(
         credentials=CloudBaseRequestCredentials(
             authorization="temporary-authorization",
             session_token="temporary-session-token",
-            timestamp="1786723200",
+            timestamp=timestamp,
         ),
         http_client=client,
     )
     return storage, client
+
+
+def test_cloudbase_credentials_allow_missing_optional_timestamp() -> None:
+    credentials = CloudBaseRequestCredentials(
+        authorization="temporary-authorization",
+        session_token="temporary-session-token",
+    )
+
+    assert credentials.as_headers() == {
+        "X-CloudBase-Authorization": "temporary-authorization",
+        "X-CloudBase-SessionToken": "temporary-session-token",
+    }
 
 
 async def test_cloudbase_storage_reads_saves_and_deletes_avatar_objects() -> None:

@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -16,20 +17,23 @@ from app.integrations.storage.base import (
 CLOUDBASE_OPEN_API_BASE_URL = "https://tcb-api.tencentcloudapi.com/api/v2"
 MANAGED_AVATAR_KEY = re.compile(r"avatars/[0-9a-f]{32}\.jpg")
 TEMPORARY_FILENAME = re.compile(r"[0-9A-Za-z._-]{1,128}")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
 class CloudBaseRequestCredentials:
     authorization: str
     session_token: str
-    timestamp: str
+    timestamp: str | None = None
 
     def as_headers(self) -> dict[str, str]:
-        return {
+        headers = {
             "X-CloudBase-Authorization": self.authorization,
             "X-CloudBase-SessionToken": self.session_token,
-            "X-CloudBase-TimeStamp": self.timestamp,
         }
+        if self.timestamp:
+            headers["X-CloudBase-TimeStamp"] = self.timestamp
+        return headers
 
 
 class CloudBaseAvatarStorage:
@@ -232,12 +236,27 @@ class CloudBaseAvatarStorage:
             )
             response.raise_for_status()
             payload = response.json()
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "CloudBase storage operation %s returned HTTP %s",
+                action,
+                exc.response.status_code,
+            )
+            raise OSError("CloudBase storage API is unavailable") from exc
         except (httpx.HTTPError, TypeError, ValueError) as exc:
+            logger.exception("CloudBase storage operation %s request failed", action)
             raise OSError("CloudBase storage API is unavailable") from exc
         if not isinstance(payload, dict):
+            logger.warning("CloudBase storage operation %s returned a non-object body", action)
             raise OSError("CloudBase returned an invalid response")
         data = payload.get("data")
         if not isinstance(data, dict):
+            logger.warning(
+                "CloudBase storage operation %s failed: code=%r message=%r",
+                action,
+                payload.get("code"),
+                payload.get("message"),
+            )
             raise OSError("CloudBase storage operation failed")
         return data
 

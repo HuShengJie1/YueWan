@@ -136,6 +136,10 @@ class AvatarService:
 
     async def update_avatar_from_cloud(self, user: User, *, file_id: str) -> User:
         if self._temporary_source is None:
+            logger.error(
+                "Cloud avatar endpoint was called without a cloud temporary source; "
+                "check AVATAR_STORAGE_BACKEND"
+            )
             raise AvatarStorageUnavailableError
         try:
             content = await self._temporary_source.read_temporary(
@@ -149,6 +153,7 @@ class AvatarService:
         except InvalidTemporaryAvatarError as exc:
             raise InvalidCloudAvatarFileError from exc
         except OSError as exc:
+            logger.exception("Failed to read temporary CloudBase avatar")
             await self._delete_temporary_without_masking_error(file_id)
             raise AvatarStorageUnavailableError from exc
 
@@ -162,6 +167,7 @@ class AvatarService:
         try:
             stored = await self._storage.save(processed.content)
         except OSError as exc:
+            logger.exception("Failed to store processed avatar")
             raise AvatarStorageUnavailableError from exc
 
         old_avatar_url = user.avatar_url

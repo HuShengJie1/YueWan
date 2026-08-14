@@ -98,7 +98,8 @@ wx.chooseAvatar
 - 本地 `POST /users/me/avatar` 仍由 Router 有界读取 multipart；生产 `PUT /users/me/avatar` 只接收
   CloudBase `file_id`，原图获取和对象存储操作集中在 `app/integrations/storage/`。
 - 图片内容会重新解码，JPEG、PNG、WebP 输入统一输出为最长边 512 px 的 JPEG；不会保留 EXIF 等客户端元数据，也不接受 SVG 或动画图片。
-- `CloudBaseAvatarStorage` 只转发单次 `callContainer` 请求注入的短期 `X-CloudBase-*` 凭证；凭证不落库、
+- `CloudBaseAvatarStorage` 只转发单次 `callContainer` 请求注入的短期 `X-CloudBase-*` 凭证；其中
+  Authorization 和 SessionToken 必需，TimeStamp 按 CloudBase 规范为可选。凭证不落库、
   不写日志，也不传给小程序业务代码。适配器只接受当前环境及当前用户临时目录的 file ID。
 - 生产最终文件使用服务端随机名称和 HTTPS CDN 地址。数据库提交失败时删除新文件，提交成功后再清理旧头像；
   已验证的临时原图无论成功失败都尽力删除。

@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -38,6 +39,7 @@ from app.services.time_option import TimeOptionService
 from app.services.user import UserService
 from app.services.vote import VoteService
 
+logger = logging.getLogger(__name__)
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
 bearer_scheme = HTTPBearer(auto_error=False, scheme_name="BearerAuth")
@@ -179,11 +181,24 @@ def get_avatar_service(
     temporary_source = None
     if settings.avatar_storage_backend == "cloudbase":
         if not settings.cloudbase_env_id or not settings.cloudbase_storage_public_base_url:
+            logger.error(
+                "CloudBase avatar storage configuration is incomplete: "
+                "env_id=%s public_base_url=%s",
+                bool(settings.cloudbase_env_id),
+                bool(settings.cloudbase_storage_public_base_url),
+            )
             raise AvatarStorageUnavailableError
         authorization = request.headers.get("x-cloudbase-authorization")
         session_token = request.headers.get("x-cloudbase-sessiontoken")
         timestamp = request.headers.get("x-cloudbase-timestamp")
-        if not authorization or not session_token or not timestamp:
+        if not authorization or not session_token:
+            logger.error(
+                "CloudBase request credentials are incomplete: "
+                "authorization=%s session_token=%s timestamp=%s",
+                bool(authorization),
+                bool(session_token),
+                bool(timestamp),
+            )
             raise AvatarStorageUnavailableError
         storage = CloudBaseAvatarStorage(
             env_id=settings.cloudbase_env_id,
