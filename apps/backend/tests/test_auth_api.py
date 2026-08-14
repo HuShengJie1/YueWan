@@ -267,8 +267,12 @@ async def test_update_current_user_avatar_from_cloud_file() -> None:
     class FakeAvatarService:
         async def update_avatar_from_cloud(self, current_user: User, *, file_id: str) -> User:
             assert current_user is user
-            assert file_id == "cloud://prod.bucket/avatar-uploads/user/source"
-            current_user.avatar_url = "https://storage.example.com/avatars/new.jpg"
+            assert file_id == (
+                "cloud://prod.bucket/avatars/user/1786723200000-0123456789abcdef.jpg"
+            )
+            current_user.avatar_url = (
+                "https://storage.example.com/avatars/user/1786723200000-0123456789abcdef.jpg"
+            )
             return current_user
 
     app.dependency_overrides[get_current_user] = lambda: user
@@ -278,8 +282,10 @@ async def test_update_current_user_avatar_from_cloud_file() -> None:
         "PUT",
         "/api/v1/users/me/avatar",
         headers={"Authorization": "Bearer signed-token"},
-        json={"file_id": " cloud://prod.bucket/avatar-uploads/user/source "},
+        json={"file_id": (" cloud://prod.bucket/avatars/user/1786723200000-0123456789abcdef.jpg ")},
     )
 
     assert response.status_code == 200
-    assert response.json()["data"]["avatar_url"] == ("https://storage.example.com/avatars/new.jpg")
+    assert response.json()["data"]["avatar_url"] == (
+        "https://storage.example.com/avatars/user/1786723200000-0123456789abcdef.jpg"
+    )

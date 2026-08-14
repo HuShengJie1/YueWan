@@ -15,10 +15,9 @@ from app.core.exceptions import (
 )
 from app.integrations.storage.base import (
     AvatarStorage,
-    InvalidTemporaryAvatarError,
+    CloudAvatarReference,
+    InvalidCloudAvatarReferenceError,
     StoredAvatar,
-    TemporaryAvatarSource,
-    TemporaryAvatarTooLargeError,
 )
 from app.models.user import User
 from app.repositories.user import UserRepository
@@ -123,46 +122,35 @@ class AvatarService:
         self,
         *,
         repository: UserRepository,
-        storage: AvatarStorage,
+        storage: AvatarStorage | None,
         processor: AvatarImageProcessor,
-        temporary_source: TemporaryAvatarSource | None = None,
-        max_upload_bytes: int,
+        cloud_reference: CloudAvatarReference | None = None,
     ) -> None:
         self._users = repository
         self._storage = storage
         self._processor = processor
-        self._temporary_source = temporary_source
-        self._max_upload_bytes = max_upload_bytes
+        self._cloud_reference = cloud_reference
 
     async def update_avatar_from_cloud(self, user: User, *, file_id: str) -> User:
-        if self._temporary_source is None:
-            logger.error(
-                "Cloud avatar endpoint was called without a cloud temporary source; "
-                "check AVATAR_STORAGE_BACKEND"
-            )
+        if self._cloud_reference is None:
+            logger.error("Cloud avatar endpoint was called without a cloud reference resolver")
             raise AvatarStorageUnavailableError
         try:
-            content = await self._temporary_source.read_temporary(
-                file_id,
-                owner_key=str(user.id),
-                max_bytes=self._max_upload_bytes,
-            )
-        except TemporaryAvatarTooLargeError as exc:
-            await self._delete_temporary_without_masking_error(file_id)
-            raise AvatarFileTooLargeError from exc
-        except InvalidTemporaryAvatarError as exc:
+            stored = self._cloud_reference.resolve(file_id, owner_key=str(user.id))
+        except InvalidCloudAvatarReferenceError as exc:
             raise InvalidCloudAvatarFileError from exc
-        except OSError as exc:
-            logger.exception("Failed to read temporary CloudBase avatar")
-            await self._delete_temporary_without_masking_error(file_id)
-            raise AvatarStorageUnavailableError from exc
 
         try:
-            return await self.update_avatar(user, content=content)
-        finally:
-            await self._delete_temporary_without_masking_error(file_id)
+            updated_user = await self._users.update_avatar(user, avatar_url=stored.url)
+            await self._users.commit()
+        except Exception:
+            await self._users.rollback()
+            raise
+        return updated_user
 
     async def update_avatar(self, user: User, *, content: bytes) -> User:
+        if self._storage is None:
+            raise AvatarStorageUnavailableError
         processed = await run_in_threadpool(self._processor.process, content)
         try:
             stored = await self._storage.save(processed.content)
@@ -184,15 +172,9 @@ class AvatarService:
         return updated_user
 
     async def _delete_without_masking_error(self, avatar: StoredAvatar) -> None:
+        if self._storage is None:
+            return
         try:
             await self._storage.delete_url(avatar.url)
         except OSError:
             logger.exception("Failed to remove a managed avatar file")
-
-    async def _delete_temporary_without_masking_error(self, file_id: str) -> None:
-        if self._temporary_source is None:
-            return
-        try:
-            await self._temporary_source.delete_file_id(file_id)
-        except OSError:
-            logger.exception("Failed to remove a temporary cloud avatar")

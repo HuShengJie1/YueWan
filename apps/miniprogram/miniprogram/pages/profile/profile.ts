@@ -7,8 +7,6 @@ import { reLaunchForAuthenticatedUser, reLaunchToLogin } from "../../utils/navig
 type ProfilePageStatus = "loading" | "ready" | "error";
 type ChooseAvatarEvent = WechatMiniprogram.CustomEvent<{ avatarUrl: string }>;
 
-const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
-
 function getAvatarUploadError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 41301) {
@@ -23,34 +21,16 @@ function getAvatarUploadError(error: unknown): string {
       return "头像图片无法识别，请重新选择";
     }
 
+    if (error.code === 42202) {
+      return "头像云文件无效，请重新选择";
+    }
+
     if (error.code === 50303) {
       return "头像存储暂时不可用，请稍后重试";
     }
   }
 
   return getUserFacingError(error, "头像上传失败，请重试");
-}
-
-function validateAvatarFile(filePath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    wx.getFileSystemManager().stat({
-      path: filePath,
-      success: ({ stats }) => {
-        if (Array.isArray(stats) || !stats.isFile()) {
-          reject(new Error("选择的头像文件无效"));
-          return;
-        }
-
-        if (stats.size > MAX_AVATAR_FILE_SIZE) {
-          reject(new Error("头像文件不能超过 5 MB"));
-          return;
-        }
-
-        resolve();
-      },
-      fail: () => reject(new Error("无法读取选择的头像")),
-    });
-  });
 }
 
 Page({
@@ -126,13 +106,12 @@ Page({
     });
 
     try {
-      await validateAvatarFile(filePath);
       const currentUser = getAuthState().user;
       if (!currentUser) {
         await reLaunchToLogin("expired");
         return;
       }
-      const user = await uploadCurrentUserAvatar(filePath, currentUser.id);
+      const user = await uploadCurrentUserAvatar(filePath, currentUser);
       if (!user.avatar_url) {
         throw new Error("头像上传成功，但服务未返回头像地址");
       }

@@ -84,25 +84,24 @@ JWT 固定使用 HS256，包含 `sub`、`iat`、`exp`、`iss`、`aud` 和 `type=
 
 ```text
 wx.chooseAvatar
-→ wx.cloud.uploadFile 写入当前用户 avatar-uploads/ 临时对象
+→ 小程序校验 JPEG/PNG、像素和大小，并压缩 JPEG
+→ wx.cloud.uploadFile 写入 avatars/<当前用户 ID>/<随机文件名>.jpg|png
 → services/user.ts 通过 callContainer 提交 file_id + Bearer Token
-→ Users Router 提取 CloudBase 请求凭证并校验 JSON
-→ CloudBaseAvatarStorage 校验环境、用户目录并有界下载原图
-→ AvatarService 校验、纠正方向、缩放并重新编码
-→ CloudBaseAvatarStorage 写入随机命名的 avatars/*.jpg
+→ Users Router 校验 JSON
+→ CloudBaseAvatarReference 校验环境、当前用户目录和受管文件名
 → UserRepository 更新 avatar_url 并提交事务
-→ 尽力清理临时原图及旧的受管头像
+→ 小程序在失败时删除新文件，成功后尽力清理上一张客户端头像
 ```
 
 - Router 只负责认证、multipart 解析和限制读取长度；图片规则及事务补偿由 `AvatarService` 编排。
-- 本地 `POST /users/me/avatar` 仍由 Router 有界读取 multipart；生产 `PUT /users/me/avatar` 只接收
-  CloudBase `file_id`，原图获取和对象存储操作集中在 `app/integrations/storage/`。
-- 图片内容会重新解码，JPEG、PNG、WebP 输入统一输出为最长边 512 px 的 JPEG；不会保留 EXIF 等客户端元数据，也不接受 SVG 或动画图片。
-- `CloudBaseAvatarStorage` 只转发单次 `callContainer` 请求注入的短期 `X-CloudBase-*` 凭证；其中
-  Authorization 和 SessionToken 必需，TimeStamp 按 CloudBase 规范为可选。凭证不落库、
-  不写日志，也不传给小程序业务代码。适配器只接受当前环境及当前用户临时目录的 file ID。
-- 生产最终文件使用服务端随机名称和 HTTPS CDN 地址。数据库提交失败时删除新文件，提交成功后再清理旧头像；
-  已验证的临时原图无论成功失败都尽力删除。
+- 本地 `POST /users/me/avatar` 仍由 Router 有界读取 multipart、由后端重新解码和处理；生产
+  `PUT /users/me/avatar` 只接收 CloudBase `file_id`，不读取对象内容。
+- 生产小程序只接受 JPEG/PNG，检查最大 5 MiB 和 2000 万源像素；JPEG 最长边压缩到 512 px，PNG
+  保持原文件。内容处理属于客户端体验与流量控制，不作为服务端安全边界。
+- `CloudBaseAvatarReference` 只接受当前环境、当前 JWT 用户的 `avatars/<user-id>/` 目录，以及
+  时间戳加随机串的 `.jpg`/`.png` 文件名；CDN URL 始终由后端配置拼接，不接受客户端 URL。
+- 生产链路不使用 CloudBase 管理凭证或存储 OpenAPI。数据库更新失败时小程序删除新文件，成功后只清理
+  同一用户目录下、符合当前命名规则的旧头像；更早的服务端头像可能保留为孤儿对象，后续可按前缀清理。
 - 本地开发保留 `LocalAvatarStorage` 和 `/media`，由 `AVATAR_STORAGE_BACKEND=local` 选择；云托管设置为
   `cloudbase`，不依赖容器临时磁盘。
 

@@ -85,8 +85,6 @@ async def upload_current_user_avatar(
     responses={
         401: {"model": ApiErrorResponse},
         403: {"model": ApiErrorResponse},
-        413: {"model": ApiErrorResponse},
-        415: {"model": ApiErrorResponse},
         422: {"model": ApiErrorResponse},
         503: {"model": ApiErrorResponse},
     },

@@ -4,14 +4,12 @@ from uuid import uuid4
 import pytest
 
 from app.core.exceptions import (
-    AvatarFileTooLargeError,
     AvatarStorageUnavailableError,
     InvalidCloudAvatarFileError,
 )
 from app.integrations.storage.base import (
-    InvalidTemporaryAvatarError,
+    InvalidCloudAvatarReferenceError,
     StoredAvatar,
-    TemporaryAvatarTooLargeError,
 )
 from app.models.user import User
 from app.services.avatar import AvatarService, ProcessedAvatar
@@ -45,13 +43,10 @@ class FakeStorage:
         self,
         *,
         save_failure: OSError | None = None,
-        read_failure: Exception | None = None,
     ) -> None:
         self.save_failure = save_failure
-        self.read_failure = read_failure
         self.saved_content: bytes | None = None
         self.deleted_urls: list[str] = []
-        self.deleted_file_ids: list[str] = []
 
     async def save(self, content: bytes) -> StoredAvatar:
         if self.save_failure is not None:
@@ -62,22 +57,17 @@ class FakeStorage:
     async def delete_url(self, url: str) -> None:
         self.deleted_urls.append(url)
 
-    async def read_temporary(
-        self,
-        file_id: str,
-        *,
-        owner_key: str,
-        max_bytes: int,
-    ) -> bytes:
-        assert file_id == "cloud://env.bucket/avatar-uploads/user/source"
-        assert owner_key
-        assert max_bytes == 5 * 1024 * 1024
-        if self.read_failure is not None:
-            raise self.read_failure
-        return b"source-image"
 
-    async def delete_file_id(self, file_id: str) -> None:
-        self.deleted_file_ids.append(file_id)
+class FakeCloudReference:
+    def __init__(self, *, failure: Exception | None = None) -> None:
+        self.failure = failure
+        self.resolved: list[tuple[str, str]] = []
+
+    def resolve(self, file_id: str, *, owner_key: str) -> StoredAvatar:
+        self.resolved.append((file_id, owner_key))
+        if self.failure is not None:
+            raise self.failure
+        return StoredAvatar(url="https://storage.example.com/avatars/user/avatar.jpg")
 
 
 class FakeRepository:
@@ -108,7 +98,6 @@ async def test_avatar_service_commits_new_avatar_and_removes_old_managed_url() -
         repository=repository,  # type: ignore[arg-type]
         storage=storage,  # type: ignore[arg-type]
         processor=FakeProcessor(),  # type: ignore[arg-type]
-        max_upload_bytes=5 * 1024 * 1024,
     )
 
     result = await service.update_avatar(user, content=b"source-image")
@@ -128,7 +117,6 @@ async def test_avatar_service_removes_new_file_when_database_update_fails() -> N
         repository=repository,  # type: ignore[arg-type]
         storage=storage,  # type: ignore[arg-type]
         processor=FakeProcessor(),  # type: ignore[arg-type]
-        max_upload_bytes=5 * 1024 * 1024,
     )
 
     with pytest.raises(RuntimeError, match="database failed"):
@@ -144,54 +132,61 @@ async def test_avatar_service_maps_storage_failures() -> None:
         repository=FakeRepository(),  # type: ignore[arg-type]
         storage=FakeStorage(save_failure=OSError("disk unavailable")),  # type: ignore[arg-type]
         processor=FakeProcessor(),  # type: ignore[arg-type]
-        max_upload_bytes=5 * 1024 * 1024,
     )
 
     with pytest.raises(AvatarStorageUnavailableError):
         await service.update_avatar(make_user(), content=b"source-image")
 
 
-async def test_avatar_service_imports_cloud_file_and_always_removes_temporary_object() -> None:
+async def test_avatar_service_commits_validated_cloud_reference() -> None:
     user = make_user()
-    storage = FakeStorage()
+    repository = FakeRepository()
+    reference = FakeCloudReference()
     service = AvatarService(
-        repository=FakeRepository(),  # type: ignore[arg-type]
-        storage=storage,
+        repository=repository,  # type: ignore[arg-type]
+        storage=None,
         processor=FakeProcessor(),  # type: ignore[arg-type]
-        temporary_source=storage,
-        max_upload_bytes=5 * 1024 * 1024,
+        cloud_reference=reference,
     )
-    file_id = "cloud://env.bucket/avatar-uploads/user/source"
+    file_id = "cloud://env.bucket/avatars/user/avatar.jpg"
 
     result = await service.update_avatar_from_cloud(user, file_id=file_id)
 
-    assert result.avatar_url == "http://testserver/media/avatars/new.jpg"
-    assert storage.deleted_file_ids == [file_id]
+    assert result.avatar_url == "https://storage.example.com/avatars/user/avatar.jpg"
+    assert reference.resolved == [(file_id, str(user.id))]
+    assert repository.committed
+    assert not repository.rolled_back
 
 
-@pytest.mark.parametrize(
-    ("failure", "expected_error"),
-    [
-        (InvalidTemporaryAvatarError(), InvalidCloudAvatarFileError),
-        (TemporaryAvatarTooLargeError(), AvatarFileTooLargeError),
-        (OSError("cloud unavailable"), AvatarStorageUnavailableError),
-    ],
-)
-async def test_avatar_service_maps_cloud_source_failures(
-    failure: Exception,
-    expected_error: type[Exception],
-) -> None:
-    storage = FakeStorage(read_failure=failure)
+async def test_avatar_service_maps_invalid_cloud_reference() -> None:
     service = AvatarService(
         repository=FakeRepository(),  # type: ignore[arg-type]
-        storage=storage,
+        storage=None,
         processor=FakeProcessor(),  # type: ignore[arg-type]
-        temporary_source=storage,
-        max_upload_bytes=5 * 1024 * 1024,
+        cloud_reference=FakeCloudReference(failure=InvalidCloudAvatarReferenceError()),
     )
 
-    with pytest.raises(expected_error):
+    with pytest.raises(InvalidCloudAvatarFileError):
         await service.update_avatar_from_cloud(
             make_user(),
-            file_id="cloud://env.bucket/avatar-uploads/user/source",
+            file_id="cloud://env.bucket/avatars/user/avatar.jpg",
         )
+
+
+async def test_avatar_service_rolls_back_cloud_reference_update_failure() -> None:
+    repository = FakeRepository(failure=RuntimeError("database failed"))
+    service = AvatarService(
+        repository=repository,  # type: ignore[arg-type]
+        storage=None,
+        processor=FakeProcessor(),  # type: ignore[arg-type]
+        cloud_reference=FakeCloudReference(),
+    )
+
+    with pytest.raises(RuntimeError, match="database failed"):
+        await service.update_avatar_from_cloud(
+            make_user(),
+            file_id="cloud://env.bucket/avatars/user/avatar.jpg",
+        )
+
+    assert repository.rolled_back
+    assert not repository.committed

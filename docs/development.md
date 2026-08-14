@@ -101,13 +101,14 @@ CLOUDBASE_ENV_ID=prod-d6guq5h1yaf1568bd
 CLOUDBASE_STORAGE_PUBLIC_BASE_URL=https://7072-prod-d6guq5h1yaf1568bd-1465494842.tcb.qcloud.la
 ```
 
-小程序通过 `wx.cloud.uploadFile` 把原图写入 `avatar-uploads/<user-id>/`，随后通过 `callContainer`
-提交 file ID。后端从该请求的 `X-CloudBase-Authorization`、`X-CloudBase-SessionToken` 和
-`X-CloudBase-TimeStamp` 取得单次短期凭证，调用官方 CloudBase OpenAPI 下载、上传和删除对象。
-这些请求头由平台注入，不要手工配置、打印或写入 `.env`。
+小程序校验 JPEG/PNG、文件大小和源像素；JPEG 会压缩到最长边 512 px。随后通过
+`wx.cloud.uploadFile` 直接写入 `avatars/<user-id>/<timestamp>-<random>.jpg|png`，再通过
+`callContainer` 提交 file ID。后端验证环境、当前用户目录和受管文件名后，自行拼接 CDN URL 并保存。
+这条链路不需要 `X-CloudBase-*` 请求头、CloudBase API Key 或腾讯云 CAM 密钥。
 
 对象存储保持“所有用户可读，仅创建者可读写”，使最终随机头像 URL 可由小程序直接显示；服务端始终拥有对象
-读写权限。临时原图与最终头像使用不同前缀，后端只接受当前用户临时前缀。
+引用验证权，但不会代表客户端读取或删除对象。小程序会在 API 失败时删除新对象，并在成功后尽力删除上一张
+符合当前命名规则的头像。
 
 ## Alembic
 
