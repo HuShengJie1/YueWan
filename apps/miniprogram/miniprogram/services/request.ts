@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../constants/api";
+import { AVATAR_UPLOAD_BASE_URL, CLOUD_CONTAINER_SERVICE } from "../constants/api";
 
 export interface ApiResponse<T> {
   code: number;
@@ -123,11 +123,16 @@ function parseResponse<T>(
 
 export function request<T>(options: RequestOptions): Promise<T> {
   return new Promise((resolve, reject) => {
-    wx.request<ApiResponse<T>>({
-      url: `${API_BASE_URL}${options.path}`,
+    wx.cloud.callContainer({
+      path: options.path,
+      service: CLOUD_CONTAINER_SERVICE,
       method: options.method ?? "GET",
       data: options.data,
-      header: buildHeaders(options),
+      header: {
+        ...buildHeaders(options),
+        "X-WX-SERVICE": CLOUD_CONTAINER_SERVICE,
+      },
+      dataType: "json",
       success: (response) => {
         try {
           resolve(
@@ -152,7 +157,7 @@ export function request<T>(options: RequestOptions): Promise<T> {
 export function uploadFile<T>(options: UploadOptions): Promise<T> {
   return new Promise((resolve, reject) => {
     wx.uploadFile({
-      url: `${API_BASE_URL}${options.path}`,
+      url: `${AVATAR_UPLOAD_BASE_URL}${options.path}`,
       filePath: options.filePath,
       name: options.name,
       formData: options.formData,
