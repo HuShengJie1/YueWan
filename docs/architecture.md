@@ -2,14 +2,14 @@
 
 ## 总体架构
 
-仓库采用前后端分离的 Monorepo：微信原生小程序通过 REST API 访问 FastAPI；FastAPI 通过 SQLAlchemy 2.x 的异步会话访问 PostgreSQL。API 统一使用 `/api/v1` 前缀。
+仓库采用前后端分离的 Monorepo：微信原生小程序通过 REST API 访问 FastAPI；FastAPI 通过 SQLAlchemy 2.x 的异步会话访问 MySQL 8。API 统一使用 `/api/v1` 前缀。
 
 ```text
 WeChat page/component
         ↓
 frontend services/request
         ↓ HTTPS + JSON
-FastAPI Router → Service → Repository → SQLAlchemy async → PostgreSQL
+FastAPI Router → Service → Repository → SQLAlchemy async → MySQL
                          ↘ Integration adapter → verified third party / media storage
 ```
 
@@ -24,7 +24,7 @@ FastAPI Router → Service → Repository → SQLAlchemy async → PostgreSQL
 - `app/core/`：配置、日志等横切能力。
 - `app/integrations/`：微信、文件存储等外部能力适配器；业务层只依赖清晰的适配边界。
 
-投票用例独立收敛在 `votes` Router、`VoteService` 和 `VoteRepository`。Router 只映射 HTTP 路径与 schema；Service 负责 active 成员、Hangout 状态、截止时间、跨 Hangout 作用域和事务编排；Repository 负责 PostgreSQL upsert、时间票整体替换和批量聚合。开启投票仍属于 Hangout 用例，由 `HangoutService` 编排 `draft → voting`。
+投票用例独立收敛在 `votes` Router、`VoteService` 和 `VoteRepository`。Router 只映射 HTTP 路径与 schema；Service 负责 active 成员、Hangout 状态、截止时间、跨 Hangout 作用域和事务编排；Repository 负责 MySQL upsert、时间票整体替换和批量聚合。开启投票仍属于 Hangout 用例，由 `HangoutService` 编排 `draft → voting`。
 
 候选写入与开启投票按 active GroupMember、Hangout 的固定顺序获取排他行锁，以同一 Hangout 行作为并发边界。投票写入对当前成员关系加排他锁、对 Hangout 加共享行锁：同一成员的替换操作串行化，不同成员可并发投票，同时阻止后续 Hangout 状态变更跨过未完成的写票事务。
 
@@ -47,9 +47,14 @@ FastAPI Router → Service → Repository → SQLAlchemy async → PostgreSQL
 
 ## 配置与启动
 
-后端通过 `pydantic-settings` 读取环境变量和 `apps/backend/.env`。所有设置集中在 `app/core/config.py`。`.env.example` 只提供无秘密的开发模板，真实凭据不得提交。
+后端通过 `pydantic-settings` 读取环境变量和 `apps/backend/.env`。所有设置集中在
+`app/core/config.py`。数据库连接使用 `DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD` 和
+`DB_NAME` 等结构化配置，再通过 SQLAlchemy `URL.create()` 生成 `mysql+asyncmy` URL，避免要求
+运维人员手工编码密码中的特殊字符。`.env.example` 只提供无秘密的开发模板，真实凭据不得提交。
 
-Engine 在模块加载时创建，但不会在应用启动或健康检查时主动连接 PostgreSQL；实际数据库操作或 migration 才建立连接。
+Engine 在模块加载时创建，但不会在应用启动或健康检查时主动连接数据库；实际数据库操作或 migration
+才建立连接。连接池启用 `pool_pre_ping`、定时回收和有界容量，事务隔离级别固定为
+`READ COMMITTED`；每条新 MySQL 连接将会话时区设置为 UTC。
 
 ## 认证与微信登录
 
@@ -68,7 +73,7 @@ wx.login()
 
 - `app/integrations/wechat/` 只通过微信官方 `code2Session` 换取身份，将微信错误映射为内部安全异常。
 - `AuthService` 编排微信换码、User upsert、事务和 access token 签发。
-- `UserRepository` 使用 `wechat_openid` 唯一约束和 PostgreSQL upsert 保证并发首次登录的幂等性。
+- `UserRepository` 使用 `wechat_openid` 唯一约束、行锁和 savepoint 后重试保证并发首次登录的幂等性。
 - `get_current_user` 校验 Bearer token，并重新读取 User 以确认账号仍存在且未禁用。
 - `UserService` 在事务中完成当前用户昵称更新和资料完整状态切换。
 

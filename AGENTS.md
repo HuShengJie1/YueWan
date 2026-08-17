@@ -8,7 +8,7 @@
 
 - 前端：微信原生小程序、TypeScript、TDesign Miniprogram、ESLint、Prettier
 - 后端：Python 3.12+、FastAPI、SQLAlchemy 2.x（异步）、Pydantic 2.x、Alembic、pytest、ruff
-- 数据库：PostgreSQL + asyncpg
+- 数据库：MySQL 8 + asyncmy
 
 ## 开发原则
 

@@ -1,8 +1,8 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -23,26 +23,54 @@ class UserRepository:
         unionid: str | None,
         logged_in_at: datetime,
     ) -> User:
-        statement = insert(User).values(
+        existing = await self._get_by_openid_for_update(openid)
+        if existing is not None:
+            return await self._record_login(
+                existing,
+                unionid=unionid,
+                logged_in_at=logged_in_at,
+            )
+
+        candidate = User(
             wechat_openid=openid,
             wechat_unionid=unionid,
             display_name=DEFAULT_DISPLAY_NAME,
             last_login_at=logged_in_at,
         )
-        statement = statement.on_conflict_do_update(
-            index_elements=[User.wechat_openid],
-            set_={
-                "wechat_unionid": func.coalesce(
-                    User.wechat_unionid,
-                    statement.excluded.wechat_unionid,
-                ),
-                "last_login_at": logged_in_at,
-                "updated_at": logged_in_at,
-            },
-        ).returning(User)
-        statement = statement.execution_options(populate_existing=True)
-        result = await self._session.execute(statement)
-        return result.scalar_one()
+        try:
+            async with self._session.begin_nested():
+                self._session.add(candidate)
+                await self._session.flush()
+        except IntegrityError:
+            # Concurrent first logins race on openid. A savepoint keeps the outer
+            # login transaction usable; unionid conflicts remain real errors.
+            existing = await self._get_by_openid_for_update(openid)
+            if existing is None:
+                raise
+            return await self._record_login(
+                existing,
+                unionid=unionid,
+                logged_in_at=logged_in_at,
+            )
+        return candidate
+
+    async def _get_by_openid_for_update(self, openid: str) -> User | None:
+        statement = select(User).where(User.wechat_openid == openid).with_for_update()
+        return (await self._session.scalars(statement)).one_or_none()
+
+    async def _record_login(
+        self,
+        user: User,
+        *,
+        unionid: str | None,
+        logged_in_at: datetime,
+    ) -> User:
+        if user.wechat_unionid is None:
+            user.wechat_unionid = unionid
+        user.last_login_at = logged_in_at
+        user.updated_at = logged_in_at
+        await self._session.flush()
+        return user
 
     async def get_by_id(self, user_id: UUID) -> User | None:
         result = await self._session.execute(select(User).where(User.id == user_id))

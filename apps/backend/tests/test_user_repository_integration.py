@@ -11,13 +11,13 @@ from app.repositories.user import UserRepository
 pytestmark = [
     pytest.mark.skipif(
         os.getenv("RUN_DATABASE_TESTS") != "1",
-        reason="set RUN_DATABASE_TESTS=1 when a migrated PostgreSQL test database is available",
+        reason="set RUN_DATABASE_TESTS=1 when a migrated MySQL test database is available",
     ),
     pytest.mark.asyncio(loop_scope="session"),
 ]
 
 
-async def test_wechat_user_upsert_is_idempotent_in_postgresql() -> None:
+async def test_wechat_user_upsert_is_idempotent_in_mysql() -> None:
     identity_suffix = uuid4().hex
     first_login = datetime(2026, 8, 9, 3, 0, tzinfo=UTC)
     second_login = first_login + timedelta(minutes=5)

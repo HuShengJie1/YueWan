@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -228,7 +228,7 @@ class GroupRepository:
                 ),
             )
             .where(Group.id == group_id)
-            .with_for_update(of=(Group, membership))
+            .with_for_update()
         )
         row = (await self._session.execute(statement)).one_or_none()
         if row is None:
@@ -247,17 +247,22 @@ class GroupRepository:
             status=GroupMemberStatus.ACTIVE,
             left_at=None,
         )
-        statement = statement.on_conflict_do_update(
-            index_elements=[GroupMember.group_id, GroupMember.user_id],
-            set_={
-                "role": GroupMember.role,
-                "status": GroupMemberStatus.ACTIVE,
-                "left_at": None,
-                "updated_at": func.now(),
-            },
-        ).returning(GroupMember)
-        statement = statement.execution_options(populate_existing=True)
-        return (await self._session.execute(statement)).scalar_one()
+        statement = statement.on_duplicate_key_update(
+            role=GroupMember.role,
+            status=GroupMemberStatus.ACTIVE,
+            left_at=None,
+            updated_at=func.current_timestamp(),
+        )
+        await self._session.execute(statement)
+        result = await self._session.scalars(
+            select(GroupMember)
+            .where(
+                GroupMember.group_id == group_id,
+                GroupMember.user_id == user_id,
+            )
+            .execution_options(populate_existing=True)
+        )
+        return result.one()
 
     async def commit(self) -> None:
         await self._session.commit()

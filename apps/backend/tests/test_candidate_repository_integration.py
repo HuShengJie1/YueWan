@@ -22,7 +22,7 @@ from app.services.time_option import TimeOptionService
 pytestmark = [
     pytest.mark.skipif(
         os.getenv("RUN_DATABASE_TESTS") != "1",
-        reason="set RUN_DATABASE_TESTS=1 when a migrated PostgreSQL test database is available",
+        reason="set RUN_DATABASE_TESTS=1 when a migrated MySQL test database is available",
     ),
     pytest.mark.asyncio(loop_scope="session"),
 ]

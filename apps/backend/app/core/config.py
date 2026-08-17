@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
@@ -14,7 +15,16 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_name: str = "MeetUp Vote API"
     debug: bool = False
-    database_url: str = "postgresql+asyncpg://localhost:5432/meetup_vote"
+    db_host: str = "127.0.0.1"
+    db_port: int = Field(default=3306, ge=1, le=65535)
+    db_user: str = "meetup_vote"
+    db_password: SecretStr = SecretStr("")
+    db_name: str = "meetup_vote"
+    db_pool_size: int = Field(default=3, ge=1, le=50)
+    db_max_overflow: int = Field(default=2, ge=0, le=50)
+    db_pool_timeout_seconds: int = Field(default=30, ge=1, le=300)
+    db_pool_recycle_seconds: int = Field(default=1800, ge=60, le=86400)
+    db_connect_timeout_seconds: int = Field(default=10, ge=1, le=60)
     api_v1_prefix: str = "/api/v1"
     wechat_app_id: str | None = None
     wechat_app_secret: SecretStr | None = None
@@ -39,6 +49,27 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @property
+    def database_url(self) -> URL:
+        """Build a driver URL without requiring callers to encode credentials."""
+        return URL.create(
+            drivername="mysql+asyncmy",
+            username=self.db_user,
+            password=self.db_password.get_secret_value() or None,
+            host=self.db_host,
+            port=self.db_port,
+            database=self.db_name,
+            query={"charset": "utf8mb4"},
+        )
+
+    @field_validator("db_host", "db_user", "db_name")
+    @classmethod
+    def validate_database_identifier(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("database connection values must not be blank")
+        return normalized
 
     @field_validator("media_root")
     @classmethod

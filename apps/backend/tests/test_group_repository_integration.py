@@ -28,7 +28,7 @@ from app.services.group import GroupService
 pytestmark = [
     pytest.mark.skipif(
         os.getenv("RUN_DATABASE_TESTS") != "1",
-        reason="set RUN_DATABASE_TESTS=1 when a migrated PostgreSQL test database is available",
+        reason="set RUN_DATABASE_TESTS=1 when a migrated MySQL test database is available",
     ),
     pytest.mark.asyncio(loop_scope="session"),
 ]
@@ -490,7 +490,7 @@ async def test_create_group_rolls_back_if_owner_creation_fails() -> None:
             await outer_transaction.rollback()
 
 
-async def test_postgresql_upsert_handles_concurrent_repeat_left_and_owner_join() -> None:
+async def test_mysql_upsert_handles_concurrent_repeat_left_and_owner_join() -> None:
     owner = make_user(nickname="Owner")
     joiner = make_user(nickname="Joiner")
     group_id: UUID | None = None
@@ -501,7 +501,7 @@ async def test_postgresql_upsert_handles_concurrent_repeat_left_and_owner_join()
             repository = GroupRepository(setup_session)
             created = await repository.create_with_owner(
                 user_id=owner.id,
-                name=f"Concurrent {uuid4().hex}",
+                name=f"Concurrent {uuid4().hex[:20]}",
                 description=None,
             )
             group_id = created.group.id

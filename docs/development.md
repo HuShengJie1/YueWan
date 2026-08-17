@@ -3,7 +3,7 @@
 ## 环境要求
 
 - Python 3.12 或 3.13；推荐使用 uv 管理虚拟环境。
-- PostgreSQL 14 或更高版本，可直接使用本机安装，不依赖 Docker。
+- MySQL 8.0.16 或更高版本；使用 InnoDB 与 `utf8mb4`。
 - Node.js 20 或更高版本及 npm。
 - 微信开发者工具稳定版。
 
@@ -34,21 +34,53 @@ curl http://127.0.0.1:8000/api/v1/health
 
 OpenAPI 文档位于 <http://127.0.0.1:8000/api/v1/docs>。
 
-## PostgreSQL 配置
+## MySQL 配置
 
-本地创建数据库，具体命令随本机 PostgreSQL 的认证方式调整：
+本地创建数据库，开发账号的创建和授权方式随本机 MySQL 的认证方式调整：
 
-```bash
-createdb meetup_vote
+```sql
+CREATE DATABASE meetup_vote
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_0900_ai_ci;
 ```
 
 复制 `.env.example` 后设置：
 
 ```dotenv
-DATABASE_URL=postgresql+asyncpg://localhost:5432/meetup_vote
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=meetup_vote
+DB_PASSWORD=<仅写入本地 .env 或云托管环境变量>
+DB_NAME=meetup_vote
 ```
 
-若本机要求用户名或密码，只写入未跟踪的 `.env`，不要修改并提交 `.env.example`。应用启动和健康检查不会主动连接数据库，第一次数据库操作或 Alembic upgrade 才需要可用的 PostgreSQL。
+数据库账号密码只写入未跟踪的 `.env`，不要修改并提交 `.env.example`。应用使用 SQLAlchemy
+`URL.create()` 生成连接 URL，因此密码中的 `@`、`/` 等字符无需手工百分号编码。应用启动和健康检查
+不会主动连接数据库，第一次数据库操作或 Alembic upgrade 才需要可用的 MySQL。
+
+初次准备好空库后，在启动 API 前执行：
+
+```bash
+cd apps/backend
+uv run alembic upgrade head
+uv run alembic current
+```
+
+连接池默认每个容器保留 3 个连接，并允许 2 个临时溢出连接。部署时需保证
+`(DB_POOL_SIZE + DB_MAX_OVERFLOW) × 最大容器实例数` 明显低于数据库最大连接数；其他连接池参数见
+`.env.example`。生产云托管只使用 MySQL 内网地址，并通过服务环境变量注入连接信息。
+
+### 云托管部署检查
+
+- `yuewan-api` 使用 `apps/backend` 作为构建目录、使用目录内的 `Dockerfile`，
+  容器端口为 `8000`。云托管注入 `PORT` 后，镜像启动命令会自动使用它。
+- 服务必须启用与 MySQL 一致的 VPC 和子网，`DB_HOST` 只填内网地址；
+  生产数据库不开启外网地址。
+- `DB_PASSWORD`、`WECHAT_APP_SECRET` 和 `JWT_SECRET` 只配置在云托管服务版本的
+  环境变量中，不放入 Git、Dockerfile 或代码包。
+- 首次部署时先不切换业务流量，暂时保持 1 个实例以便进入 WebShell，在 `/app`
+  执行 `.venv/bin/alembic upgrade head` 和 `.venv/bin/alembic current`。确认为
+  `20260815_0001 (head)` 后再做 API 冒烟测试和流量切换。
 
 ## 本地认证配置
 
@@ -112,16 +144,24 @@ CLOUDBASE_STORAGE_PUBLIC_BASE_URL=https://7072-prod-d6guq5h1yaf1568bd-1465494842
 
 ## Alembic
 
+MySQL 活动 migration 链位于 `alembic/mysql_versions/`，当前 head 为
+`20260815_0001`，可从空 MySQL 直接建立全部 MVP schema。`alembic/versions/` 中的
+`20260809_0001` 至 `20260810_0004` 是保留的 PostgreSQL 历史，不在 `alembic.ini`
+的活动 `version_locations` 内，不会被应用到 MySQL。
+
 在 `apps/backend` 中运行：
 
 ```bash
 uv run alembic heads
 uv run alembic revision --autogenerate -m "describe schema change"
 uv run alembic upgrade head
+uv run alembic check
 uv run alembic downgrade -1
 ```
 
-自动生成 migration 后必须人工审阅。初始 MVP 业务 schema 位于 revision `20260809_0001`，用户认证状态字段位于 `20260809_0002` 和 `20260809_0003`，Hangout 跨状态列表索引位于 `20260810_0004`。
+自动生成 migration 后必须人工审阅，并确认使用 MySQL 类型、约束和安全的 upgrade/downgrade。
+旧 PostgreSQL 中如果已有业务数据，需要另外设计一次性导出、转换、校验和切换流程；
+baseline 只建结构，不会自动复制旧库数据。
 
 ## 后端测试与 lint
 
@@ -132,7 +172,8 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-健康测试不需要运行 PostgreSQL。默认测试会跳过真实数据库的用户、群组、Hangout 与候选 Repository 集成测试；本地数据库已迁移到 head 时可显式运行：
+健康测试不需要运行数据库。默认测试会跳过真实数据库的 Repository
+集成测试。对一个已升级到 head 的独立 MySQL 测试库执行：
 
 ```bash
 RUN_DATABASE_TESTS=1 uv run pytest \

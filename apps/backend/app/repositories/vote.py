@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, func, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import case, delete, func, select
+from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import GroupMemberStatus, ProposalVoteValue
@@ -133,12 +133,9 @@ class VoteRepository:
                 user_id=user_id,
                 value=value,
             )
-            .on_conflict_do_update(
-                index_elements=[ProposalVote.proposal_id, ProposalVote.user_id],
-                set_={
-                    "value": value,
-                    "updated_at": func.now(),
-                },
+            .on_duplicate_key_update(
+                value=value,
+                updated_at=func.current_timestamp(),
             )
         )
         await self._session.execute(statement)
@@ -188,15 +185,15 @@ class VoteRepository:
         counts = (
             select(
                 ProposalVote.proposal_id.label("proposal_id"),
-                func.count(ProposalVote.id)
-                .filter(ProposalVote.value == ProposalVoteValue.LIKE)
-                .label("like_count"),
-                func.count(ProposalVote.id)
-                .filter(ProposalVote.value == ProposalVoteValue.OK)
-                .label("ok_count"),
-                func.count(ProposalVote.id)
-                .filter(ProposalVote.value == ProposalVoteValue.DISLIKE)
-                .label("dislike_count"),
+                func.sum(case((ProposalVote.value == ProposalVoteValue.LIKE, 1), else_=0)).label(
+                    "like_count"
+                ),
+                func.sum(case((ProposalVote.value == ProposalVoteValue.OK, 1), else_=0)).label(
+                    "ok_count"
+                ),
+                func.sum(case((ProposalVote.value == ProposalVoteValue.DISLIKE, 1), else_=0)).label(
+                    "dislike_count"
+                ),
             )
             .where(ProposalVote.proposal_id.in_(hangout_proposal_ids))
             .group_by(ProposalVote.proposal_id)

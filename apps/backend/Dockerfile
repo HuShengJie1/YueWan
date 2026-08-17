@@ -16,8 +16,8 @@ COPY alembic ./alembic
 COPY alembic.ini ./
 RUN uv sync --frozen --no-dev
 
-# Avatar storage is local and ephemeral in this first cloud deployment. The
-# directory must still be writable while the application runs as a non-root user.
+# Local development can still use filesystem avatar storage; production selects
+# the CloudBase adapter. Keep the fallback directory writable for the non-root user.
 RUN mkdir -p /app/var/media && chown -R 10001:10001 /app/var
 
 USER 10001:10001

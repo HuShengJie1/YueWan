@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, MetaData, func
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy import MetaData, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from app.db.types import UUID_COLUMN_TYPE, UTCDateTime
 
 NAMING_CONVENTION = {
     "ix": "ix_%(table_name)s_%(column_0_N_name)s",
@@ -20,18 +21,29 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 class UUIDPrimaryKeyMixin:
     """Application-generated UUIDv4 primary key for public business entities."""
 
-    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id: Mapped[UUID] = mapped_column(UUID_COLUMN_TYPE, primary_key=True, default=uuid4)
 
 
 class TimestampMixin:
     """Timezone-aware creation and last-update timestamps."""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        UTCDateTime(),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP(6)"),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        UTCDateTime(),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP(6)"),
+        onupdate=utc_now,
+        nullable=False,
     )

@@ -1,12 +1,12 @@
 # 约玩 / MeetUp Vote
 
-一个帮助朋友快速决定“谁参加、什么时候去、去哪里”的微信小程序。当前已实现微信登录与用户资料、群组与成员、约玩局草稿、候选活动和候选时间，以及 `draft → voting`、活动 `LIKE/OK/DISLIKE` 投票、时间多选与实时票数的前后端闭环。结果确认、Event、参与者 RSVP、取消/结束状态和第三方平台解析仍未实现。
+一个帮助朋友快速决定“谁参加、什么时候去、去哪里”的微信小程序。当前已实现微信登录与用户资料、群组与成员、约玩局草稿、候选活动和候选时间，以及 `draft → voting`、活动 `LIKE/OK/DISLIKE` 投票、时间多选、实时票数与手动确认 Event 闭环。参与者 RSVP、取消/结束状态和第三方平台解析仍未实现。
 
 ## 技术栈
 
 - 微信原生小程序 + TypeScript + TDesign Miniprogram
 - FastAPI + SQLAlchemy 2.x async + Pydantic 2.x
-- PostgreSQL + asyncpg + Alembic
+- MySQL 8 + asyncmy + Alembic
 - pytest、ruff、ESLint、Prettier 和 GitHub Actions
 
 ## 目录
@@ -22,7 +22,7 @@ scripts/            后续可复用的项目脚本
 ## 环境要求
 
 - Python 3.12+
-- PostgreSQL 14+
+- MySQL 8.0.16+
 - Node.js 20+
 - 微信开发者工具
 

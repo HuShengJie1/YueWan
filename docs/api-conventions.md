@@ -313,7 +313,7 @@
 - 后端严格校验签名、期限、type、用途及 token 的 `group_id` 与路径一致。
 - 从未加入时原子创建 `member/active` 关系；已 active 时幂等成功且不创建重复记录；已 left 时恢复为 `member/active` 并清空 `left_at`。
 - 该接口不会把已有 owner 降级为 member。
-- PostgreSQL `ON CONFLICT` 与 `(group_id, user_id)` 唯一约束保证并发加入不会产生重复 GroupMember；整个加入和详情读取在一个事务中提交。
+- MySQL `ON DUPLICATE KEY UPDATE` 与 `(group_id, user_id)` 唯一约束保证并发加入不会产生重复 GroupMember；整个加入和详情读取在一个事务中提交。
 - 成功返回 `200 OK`，`data` 为加入后的群组详情。
 
 ### 群组错误码
